@@ -96,3 +96,38 @@ export function calculateDeficit(regions: RegionState[]): {
 
   return { totalSupply, totalDemand, deficit, supplyRatio };
 }
+
+/**
+ * Calculate the minimum and recommended load shedding stages.
+ * minimumStage: lowest stage that avoids grid collapse (supply >= 40% demand)
+ * recommendedStage: lowest stage where supply meets effective demand
+ */
+export function calculateMinimumStage(
+  availableSupply: number,
+  totalDemand: number,
+): { minimumStage: number; recommendedStage: number } {
+  let minimumStage = 0;
+  let recommendedStage = 0;
+
+  // Find minimum stage (avoids collapse)
+  for (let s = 0; s < BALANCING.STAGE_DEMAND_CUT.length; s++) {
+    const effectiveDemand = totalDemand * (1 - BALANCING.STAGE_DEMAND_CUT[s]);
+    if (availableSupply >= effectiveDemand * BALANCING.GRID_COLLAPSE_SUPPLY_RATIO) {
+      minimumStage = s;
+      break;
+    }
+    minimumStage = s;
+  }
+
+  // Find recommended stage (supply meets demand)
+  recommendedStage = BALANCING.STAGE_DEMAND_CUT.length - 1;
+  for (let s = 0; s < BALANCING.STAGE_DEMAND_CUT.length; s++) {
+    const effectiveDemand = totalDemand * (1 - BALANCING.STAGE_DEMAND_CUT[s]);
+    if (availableSupply >= effectiveDemand) {
+      recommendedStage = s;
+      break;
+    }
+  }
+
+  return { minimumStage, recommendedStage };
+}

@@ -3,6 +3,7 @@ import type { GameState, Screen } from '../data/types';
 import * as GameEngine from '../engine/GameEngine';
 import * as EventEngine from '../engine/EventEngine';
 import { buildCompletedRun } from '../engine/ScoringEngine';
+import { BALANCING } from '../data/balancing';
 import { saveCurrentRun, clearCurrentRun, loadCurrentRun } from '../utils/storage';
 import { useHistoryStore } from './historyStore';
 
@@ -26,6 +27,10 @@ interface GameStore {
   activateDiesel: (plantId: string) => void;
   scheduleMaintenance: (plantId: string) => void;
   makeEventChoice: (eventId: string, choiceIndex: number) => void;
+
+  // Budget recovery
+  increaseTariff: () => void;
+  requestBailout: () => void;
 
   // Day lifecycle
   endDay: () => void;
@@ -159,6 +164,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...game.playerActions,
         eventChoices: [...game.playerActions.eventChoices, { eventId, choiceIndex }],
       },
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  increaseTariff: () => {
+    const { game } = get();
+    if (!game || game.tariffIncreases >= BALANCING.TARIFF_INCREASE_MAX) return;
+
+    const updated: GameState = {
+      ...game,
+      tariffIncreases: game.tariffIncreases + 1,
+      tariffMultiplier: game.tariffMultiplier + BALANCING.TARIFF_INCREASE_AMOUNT,
+      rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.TARIFF_INCREASE_RAGE_COST),
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  requestBailout: () => {
+    const { game } = get();
+    if (!game || game.bailoutUsed) return;
+
+    const updated: GameState = {
+      ...game,
+      budget: game.budget + BALANCING.BAILOUT_AMOUNT,
+      heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.BAILOUT_HEAT_COST),
+      rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.BAILOUT_RAGE_COST),
+      bailoutUsed: true,
     };
     saveCurrentRun(updated);
     set({ game: updated });

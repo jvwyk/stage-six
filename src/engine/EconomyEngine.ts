@@ -14,12 +14,12 @@ export interface EconomyResult {
  * Calculate daily revenue from electricity sales.
  * Revenue is reduced by rage penalties (people stop paying).
  */
-export function calculateRevenue(regions: RegionState[], rage: number): number {
+export function calculateRevenue(regions: RegionState[], rage: number, tariffMultiplier: number = 1.0): number {
   const ragePenalty = getRageRevenuePenalty(rage);
   let revenue = 0;
 
   for (const region of regions) {
-    const regionRevenue = region.currentSupply * region.economicValue * BALANCING.TARIFF_RATE;
+    const regionRevenue = region.currentSupply * region.economicValue * BALANCING.TARIFF_RATE * tariffMultiplier;
     revenue += regionRevenue;
   }
 

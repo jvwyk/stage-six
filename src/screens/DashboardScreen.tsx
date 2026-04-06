@@ -8,6 +8,9 @@ import { StatusPill } from '../components/shared/StatusPill';
 import { MeterBar } from '../components/shared/MeterBar';
 import { EventAlert } from '../components/game/EventAlert';
 import { formatMoney, formatMW } from '../utils/format';
+import { calculateMinimumStage } from '../engine/SimulationEngine';
+import { getAvailableCapacity } from '../engine/PlantEngine';
+import { BALANCING } from '../data/balancing';
 import type { GameState, Opportunity } from '../data/types';
 
 interface DashboardScreenProps {
@@ -18,11 +21,14 @@ interface DashboardScreenProps {
   onStageChange: (stage: number) => void;
   onActivateDiesel: (plantId: string) => void;
   onEventChoice: (eventId: string, choiceIndex: number) => void;
+  onIncreaseTariff: () => void;
+  onRequestBailout: () => void;
   onMenu: () => void;
 }
 
 export function DashboardScreen({
-  game, onDealClick, onEndDay, onPlants, onStageChange, onActivateDiesel, onEventChoice, onMenu,
+  game, onDealClick, onEndDay, onPlants, onStageChange, onActivateDiesel, onEventChoice,
+  onIncreaseTariff, onRequestBailout, onMenu,
 }: DashboardScreenProps) {
   const totalSupply = game.plants.reduce((sum, p) =>
     (p.status === 'online' || p.status === 'derated') ? sum + p.currentOutput : sum, 0);
@@ -34,6 +40,10 @@ export function DashboardScreen({
   // Check which deals have already been decided
   const decidedIds = new Set(game.playerActions.deals.map((d) => d.opportunityId));
   const pendingOpportunities = game.todaysOpportunities.filter((o) => !decidedIds.has(o.id));
+
+  // Calculate minimum and recommended stages
+  const availableSupply = getAvailableCapacity(game.plants);
+  const { minimumStage, recommendedStage } = calculateMinimumStage(availableSupply, totalDemand);
 
   const riskColors: Record<string, string> = {
     low: tokens.color.green,
@@ -89,21 +99,36 @@ export function DashboardScreen({
           </div>
 
           {/* Stage Selector */}
+          {game.currentStage < recommendedStage && (
+            <div style={{
+              marginTop: 8, padding: '6px 10px', background: `${tokens.color.amber}10`,
+              border: `1px solid ${tokens.color.amber}20`, borderRadius: 6, textAlign: 'center',
+              fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber,
+            }}>
+              {'\u26A0\uFE0F'} Supply deficit — stage {recommendedStage}+ recommended
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 4, marginTop: 10, justifyContent: 'center' }}>
-            {Array.from({ length: 9 }, (_, i) => (
-              <button key={i} onClick={() => onStageChange(i)} style={{
-                minWidth: 38, minHeight: 44,
-                background: i === game.currentStage
-                  ? (i >= 6 ? tokens.color.red : i >= 4 ? tokens.color.amber : tokens.color.green)
-                  : tokens.color.raised,
-                color: i === game.currentStage ? tokens.color.bg : tokens.color.dim,
-                border: `1px solid ${i === game.currentStage ? 'transparent' : tokens.color.border}`,
-                borderRadius: 6, cursor: 'pointer',
-                fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700,
-              }}>
-                {i}
-              </button>
-            ))}
+            {Array.from({ length: 9 }, (_, i) => {
+              const isDisabled = i < minimumStage;
+              const isActive = i === game.currentStage;
+              const isRecommended = i === recommendedStage;
+              return (
+                <button key={i} onClick={() => !isDisabled && onStageChange(i)} style={{
+                  minWidth: 38, minHeight: 44,
+                  background: isActive
+                    ? (i >= 6 ? tokens.color.red : i >= 4 ? tokens.color.amber : tokens.color.green)
+                    : tokens.color.raised,
+                  color: isDisabled ? `${tokens.color.dim}40` : isActive ? tokens.color.bg : tokens.color.dim,
+                  border: `1px solid ${isActive ? 'transparent' : isRecommended ? `${tokens.color.amber}50` : tokens.color.border}`,
+                  borderRadius: 6, cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  fontFamily: tokens.font.mono, fontSize: 11, fontWeight: 700,
+                  opacity: isDisabled ? 0.4 : 1,
+                }}>
+                  {isDisabled ? '\u{1F512}' : i}
+                </button>
+              );
+            })}
           </div>
         </Card>
 
@@ -244,6 +269,38 @@ export function DashboardScreen({
                 </div>
               </button>
             ))}
+            {/* Tariff Increase */}
+            {game.tariffIncreases < BALANCING.TARIFF_INCREASE_MAX && (
+              <button onClick={onIncreaseTariff} style={{
+                padding: '12px 8px', background: tokens.color.raised,
+                border: `1px solid ${tokens.color.amber}20`, borderRadius: 8,
+                cursor: 'pointer', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{'\u{1F4B5}'}</div>
+                <div style={{ fontFamily: tokens.font.body, fontSize: 11, fontWeight: 600, color: tokens.color.amber }}>
+                  Raise Tariff
+                </div>
+                <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, marginTop: 2 }}>
+                  +15% rev, +8 rage ({game.tariffIncreases}/{BALANCING.TARIFF_INCREASE_MAX})
+                </div>
+              </button>
+            )}
+            {/* Government Bailout */}
+            {!game.bailoutUsed && (
+              <button onClick={onRequestBailout} style={{
+                padding: '12px 8px', background: tokens.color.raised,
+                border: `1px solid ${tokens.color.green}20`, borderRadius: 8,
+                cursor: 'pointer', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{'\u{1F3E6}'}</div>
+                <div style={{ fontFamily: tokens.font.body, fontSize: 11, fontWeight: 600, color: tokens.color.green }}>
+                  Bailout
+                </div>
+                <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, marginTop: 2 }}>
+                  +R800M, +12 heat
+                </div>
+              </button>
+            )}
             <button onClick={onMenu} style={{
               padding: '12px 8px', background: tokens.color.raised,
               border: `1px solid ${tokens.color.border}`, borderRadius: 8,

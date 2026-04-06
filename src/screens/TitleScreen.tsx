@@ -6,9 +6,10 @@ interface TitleScreenProps {
   onStart: () => void;
   onResume: () => void;
   onHistory: () => void;
+  onHowTo: () => void;
 }
 
-export function TitleScreen({ onStart, onResume, onHistory }: TitleScreenProps) {
+export function TitleScreen({ onStart, onResume, onHistory, onHowTo }: TitleScreenProps) {
   const [show, setShow] = useState(false);
   const [hasRun, setHasRun] = useState(false);
 
@@ -119,6 +120,13 @@ export function TitleScreen({ onStart, onResume, onHistory }: TitleScreenProps) 
             border: 'none', fontFamily: tokens.font.mono, fontSize: 11, cursor: 'pointer',
           }}>
             Run History
+          </button>
+
+          <button onClick={onHowTo} style={{
+            padding: '10px 30px', background: 'transparent', color: tokens.color.gold,
+            border: 'none', fontFamily: tokens.font.mono, fontSize: 11, cursor: 'pointer',
+          }}>
+            How to Play
           </button>
         </div>
 

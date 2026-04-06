@@ -40,8 +40,14 @@ export function rollNewEvents(
 
   if (eligible.length === 0) return [];
 
-  // Weighted selection
-  const weights = eligible.map((e) => e.weight);
+  // Weighted selection — audit risk boosts heat/investigation events
+  const weights = eligible.map((e) => {
+    let w = e.weight;
+    if (e.category === 'heat' && state.auditRisk > 20) {
+      w *= 1 + state.auditRisk / 50; // Up to 3x weight at max audit risk
+    }
+    return w;
+  });
   const selected = random.weightedPick(eligible, weights);
 
   return [{

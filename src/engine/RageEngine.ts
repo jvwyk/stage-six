@@ -10,19 +10,43 @@ export interface RageResult {
 
 /**
  * Calculate daily rage update.
+ * New formula: rewards stage reduction and meeting demand.
+ * Rage no longer causes game-over — it's indirect pressure via revenue and defection.
  */
 export function calculateDailyRage(
   state: GameState,
   regions: RegionState[],
-  stageChanged: boolean,
+  supplyRatio: number,
   didCleanMaintenance: boolean,
 ): RageResult {
   const rageEvents: string[] = [];
   let rageDelta = 0;
 
-  // Stage-based rage (quadratic)
-  const stageRage = state.currentStage * state.currentStage * BALANCING.RAGE_STAGE_MULTIPLIER;
-  rageDelta += stageRage;
+  // Stage-based rage: gentle below stage 4, quadratic above
+  const stage = state.currentStage;
+  if (stage >= BALANCING.RAGE_HIGH_STAGE_THRESHOLD) {
+    const excess = stage - BALANCING.RAGE_HIGH_STAGE_THRESHOLD + 1;
+    rageDelta += excess * excess * BALANCING.RAGE_HIGH_STAGE_MULTIPLIER;
+  } else if (stage > 0) {
+    rageDelta += stage * BALANCING.RAGE_LOW_STAGE_MULTIPLIER;
+  }
+
+  // Stage REDUCTION reward — lowering stage actively reduces rage
+  if (state.stageHistory.length > 0) {
+    const yesterdayStage = state.stageHistory[state.stageHistory.length - 1];
+    if (stage < yesterdayStage) {
+      rageDelta -= (yesterdayStage - stage) * BALANCING.RAGE_STAGE_REDUCTION_BONUS;
+      rageEvents.push('Stage reduced — public pressure easing');
+    }
+  }
+
+  // Demand satisfaction reward — meeting demand actively reduces rage
+  if (supplyRatio >= 1.0 && stage === 0) {
+    rageDelta -= BALANCING.RAGE_FULL_SUPPLY_BONUS;
+    rageEvents.push('Full demand met — no load shedding needed');
+  } else if (supplyRatio >= BALANCING.RAGE_ADEQUATE_SUPPLY_THRESHOLD) {
+    rageDelta -= BALANCING.RAGE_ADEQUATE_SUPPLY_BONUS;
+  }
 
   // Per-region shortfall rage
   const perRegionRage = new Map<string, number>();
@@ -40,14 +64,14 @@ export function calculateDailyRage(
   // Unpredictability penalty (stage changed by more than 2)
   if (state.stageHistory.length > 0) {
     const yesterdayStage = state.stageHistory[state.stageHistory.length - 1];
-    if (Math.abs(state.currentStage - yesterdayStage) > BALANCING.RAGE_UNPREDICTABILITY_STAGE_CHANGE) {
+    if (Math.abs(stage - yesterdayStage) > BALANCING.RAGE_UNPREDICTABILITY_STAGE_CHANGE) {
       rageDelta += BALANCING.RAGE_UNPREDICTABILITY_PENALTY;
       rageEvents.push('Sudden stage change angers public');
     }
   }
 
   // Stability bonus (stage unchanged from yesterday)
-  if (!stageChanged && state.stageHistory.length > 0) {
+  if (state.stageHistory.length > 0 && state.stageHistory[state.stageHistory.length - 1] === stage) {
     rageDelta -= BALANCING.RAGE_STABILITY_BONUS;
   }
 
@@ -67,7 +91,10 @@ export function calculateDailyRage(
     rageEvents.push('Protests erupting across the country');
   }
   if (newRage >= BALANCING.RAGE_CRITICAL_THRESHOLD && state.rage < BALANCING.RAGE_CRITICAL_THRESHOLD) {
-    rageEvents.push('Political pressure mounting — your position is at risk');
+    rageEvents.push('Public switching to generators and solar');
+  }
+  if (newRage >= BALANCING.RAGE_EXTREME_THRESHOLD && state.rage < BALANCING.RAGE_EXTREME_THRESHOLD) {
+    rageEvents.push('Revenue collapsing — mass grid defection underway');
   }
 
   return {
@@ -90,7 +117,6 @@ export function updateRegionRage(regions: RegionState[]): RegionState[] {
 
     if (shortfallRatio > BALANCING.RAGE_REGION_SHORTFALL_THRESHOLD) {
       rageChange = shortfallRatio * BALANCING.RAGE_REGION_SHORTFALL_MULTIPLIER * region.rageSensitivity;
-      // Regions that are repeatedly shed get angrier faster
       if (region.consecutiveSheddingDays > BALANCING.RAGE_CONSECUTIVE_SHEDDING_DAYS) {
         rageChange *= BALANCING.RAGE_CONSECUTIVE_SHEDDING_MULTIPLIER;
       }
@@ -109,9 +135,23 @@ export function updateRegionRage(regions: RegionState[]): RegionState[] {
 }
 
 /**
+ * Apply public defection — at extreme rage, public switches to solar/generators.
+ * Reduces base demand (sounds good but kills tariff revenue).
+ */
+export function applyPublicDefection(regions: RegionState[], rage: number): RegionState[] {
+  if (rage < BALANCING.RAGE_DEFECTION_THRESHOLD) return regions;
+
+  return regions.map((region) => ({
+    ...region,
+    baseDemand: Math.round(region.baseDemand * (1 - BALANCING.RAGE_DEFECTION_RATE)),
+  }));
+}
+
+/**
  * Get revenue penalty from rage level.
  */
 export function getRageRevenuePenalty(rage: number): number {
+  if (rage >= BALANCING.RAGE_EXTREME_THRESHOLD) return BALANCING.RAGE_EXTREME_REVENUE_PENALTY;
   if (rage >= BALANCING.RAGE_CRITICAL_THRESHOLD) return BALANCING.RAGE_CRITICAL_REVENUE_PENALTY;
   if (rage >= BALANCING.RAGE_FURIOUS_THRESHOLD) return BALANCING.RAGE_FURIOUS_REVENUE_PENALTY;
   if (rage >= BALANCING.RAGE_ANGRY_THRESHOLD) return BALANCING.RAGE_ANGRY_REVENUE_PENALTY;

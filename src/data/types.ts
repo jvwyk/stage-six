@@ -264,6 +264,16 @@ export interface GameState {
 
   bankruptcyDays: number;
   consecutiveLowSupplyDays: number;
+  demandMetDays: number;
+
+  // Budget recovery
+  tariffIncreases: number;
+  tariffMultiplier: number;
+  bailoutUsed: boolean;
+
+  // Hidden corruption mechanics
+  auditRisk: number;
+  corruptionScore: number;
 
   playerActions: PlayerActions;
 }
@@ -320,4 +330,5 @@ export type Screen =
   | 'corruption_receipt'
   | 'plant_detail'
   | 'run_history'
-  | 'daily_challenge';
+  | 'daily_challenge'
+  | 'how_to';

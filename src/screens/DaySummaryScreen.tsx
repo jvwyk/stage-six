@@ -25,6 +25,19 @@ export function DaySummaryScreen({ report, onContinue }: DaySummaryScreenProps) 
         <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim }}>{daysRemaining} DAYS REMAINING</div>
       </div>
 
+      {/* Demand satisfaction badge */}
+      {report.supplyTotal >= report.demandTotal && (
+        <div style={{
+          padding: '8px 12px', background: `${tokens.color.green}10`,
+          border: `1px solid ${tokens.color.green}20`, borderRadius: 8,
+          textAlign: 'center', fontFamily: tokens.font.mono, fontSize: 10,
+          color: tokens.color.green, fontWeight: 700,
+          ...staggeredFadeUp(1),
+        }}>
+          {'\u2705'} DEMAND MET — NO LOAD SHEDDING NEEDED
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
         {/* Key Metrics */}
         <Card style={staggeredFadeUp(1)}>

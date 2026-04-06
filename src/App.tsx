@@ -10,6 +10,7 @@ import { CorruptionReceiptScreen } from './screens/CorruptionReceiptScreen';
 import { GameOverScreen } from './screens/GameOverScreen';
 import { PlantDetailScreen } from './screens/PlantDetailScreen';
 import { RunHistoryScreen } from './screens/RunHistoryScreen';
+import { HowToScreen } from './screens/HowToScreen';
 import { DealModal } from './components/game/DealModal';
 import { PauseMenu } from './components/screens/PauseMenu';
 import { BALANCING } from './data/balancing';
@@ -30,6 +31,8 @@ function App() {
   const makeEventChoice = useGameStore((s) => s.makeEventChoice);
   const endDay = useGameStore((s) => s.endDay);
   const continueTomorrow = useGameStore((s) => s.continueTomorrow);
+  const increaseTariff = useGameStore((s) => s.increaseTariff);
+  const requestBailout = useGameStore((s) => s.requestBailout);
   const flee = useGameStore((s) => s.flee);
   const abandonRun = useGameStore((s) => s.abandonRun);
 
@@ -52,6 +55,7 @@ function App() {
           onStart={() => newGame('standard')}
           onResume={() => resumeGame()}
           onHistory={() => setScreen('run_history')}
+          onHowTo={() => setScreen('how_to')}
         />
       )}
 
@@ -65,6 +69,8 @@ function App() {
             onStageChange={setStage}
             onActivateDiesel={activateDiesel}
             onEventChoice={makeEventChoice}
+            onIncreaseTariff={increaseTariff}
+            onRequestBailout={requestBailout}
             onMenu={() => setShowMenu(true)}
           />
           {selectedDeal && (
@@ -127,6 +133,10 @@ function App() {
           onActivateDiesel={activateDiesel}
           onBack={() => setScreen('dashboard')}
         />
+      )}
+
+      {screen === 'how_to' && (
+        <HowToScreen onClose={() => setScreen('title')} />
       )}
 
       {screen === 'run_history' && (

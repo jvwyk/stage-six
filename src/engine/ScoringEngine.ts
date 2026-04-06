@@ -36,7 +36,10 @@ export function calculateFinalScore(state: GameState): ScoreBreakdown {
   const wealth = Math.round(wealthRatio * 100);
 
   // Stability score (40% weight) — lower avg stage = better
-  const stabilityRatio = Math.max(0, 1 - avgStage / BALANCING.STAGE_DEMAND_CUT.length);
+  // Stability combines avg stage (70%) and demand satisfaction (30%)
+  const stageScore = Math.max(0, 1 - avgStage / BALANCING.STAGE_DEMAND_CUT.length);
+  const demandMetRatio = state.day > 0 ? state.demandMetDays / state.day : 0;
+  const stabilityRatio = stageScore * 0.7 + demandMetRatio * 0.3;
   const stability = Math.round(stabilityRatio * 100);
 
   // Trust score (20% weight) — lower rage = better

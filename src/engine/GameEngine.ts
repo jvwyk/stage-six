@@ -77,6 +77,12 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     dayReport: null,
     bankruptcyDays: 0,
     consecutiveLowSupplyDays: 0,
+    demandMetDays: 0,
+    tariffIncreases: 0,
+    tariffMultiplier: 1.0,
+    bailoutUsed: false,
+    auditRisk: 0,
+    corruptionScore: 0,
     playerActions: createEmptyActions(),
   };
 }
@@ -278,20 +284,26 @@ export function resolveDay(state: GameState): GameState {
     dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
   }
 
-  // 15. Calculate rage
-  const stageChanged = s.stageHistory.length > 0 &&
-    s.stageHistory[s.stageHistory.length - 1] !== s.currentStage;
+  // 15. Calculate rage (new formula: rewards stage reduction + meeting demand)
   const rageResult = RageEngine.calculateDailyRage(
     s,
     s.regions,
-    stageChanged,
+    gridResult.supplyRatio,
     didCleanMaintenance,
   );
   s.rage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, rageResult.newRage + dayRageFromActions + eventEffects.rageDelta));
   dayEvents.push(...rageResult.rageEvents);
 
+  // 15b. Apply public defection at extreme rage (demand permanently shrinks)
+  s.regions = RageEngine.applyPublicDefection(s.regions, s.rage);
+
+  // 15c. Track demand satisfaction
+  if (gridResult.supplyRatio >= 1.0 && s.currentStage === 0) {
+    s.demandMetDays = s.demandMetDays + 1;
+  }
+
   // 16. Calculate economy
-  const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage);
+  const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage, s.tariffMultiplier);
   const fuelCosts = EconomyEngine.calculateCosts(s.plants, 0);
   const heatPenalty = EconomyEngine.calculateHeatPenalty(s.budget, s.heat);
   const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta + heatPenalty;
@@ -405,13 +417,8 @@ export function checkEndConditions(state: GameState): EndCondition | null {
     };
   }
 
-  // Rage revolt
-  if (state.rage >= BALANCING.RAGE_REVOLT_THRESHOLD) {
-    return {
-      reason: 'rage',
-      description: 'The people have had enough. You are removed from office.',
-    };
-  }
+  // Rage no longer causes direct game-over — it's indirect pressure
+  // via revenue penalties, protest events, and public defection
 
   // Grid collapse
   if (state.consecutiveLowSupplyDays >= BALANCING.GRID_COLLAPSE_CONSECUTIVE_DAYS) {
