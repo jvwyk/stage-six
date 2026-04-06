@@ -10,8 +10,26 @@ export interface HeatResult {
   events: string[];
 }
 
+// Threshold bands in ascending order for band-drop limit enforcement
+const HEAT_BANDS = [
+  0,
+  BALANCING.HEAT_WHISPER_THRESHOLD,     // 26
+  BALANCING.HEAT_JOURNALIST_THRESHOLD,  // 46
+  BALANCING.HEAT_INQUIRY_THRESHOLD,     // 66
+  BALANCING.HEAT_IMMINENT_THRESHOLD,    // 81
+  BALANCING.HEAT_ARREST_THRESHOLD,      // 96
+];
+
+function getBandIndex(heat: number): number {
+  for (let i = HEAT_BANDS.length - 1; i >= 0; i--) {
+    if (heat >= HEAT_BANDS[i]) return i;
+  }
+  return 0;
+}
+
 /**
  * Calculate daily heat update.
+ * Spec rule: heat cannot drop more than 1 threshold band per day.
  */
 export function calculateDailyHeat(
   state: GameState,
@@ -28,7 +46,17 @@ export function calculateDailyHeat(
   }
 
   const added = heatAdded;
-  const newHeat = Math.max(0, Math.min(BALANCING.HEAT_MAX, state.heat + added - decay));
+  let newHeat = Math.max(0, Math.min(BALANCING.HEAT_MAX, state.heat + added - decay));
+
+  // Enforce band-drop limit: heat cannot drop more than 1 threshold band per day
+  if (newHeat < state.heat) {
+    const currentBand = getBandIndex(state.heat);
+    if (currentBand >= 2) {
+      // Minimum heat is the bottom of the band one below current
+      const minHeat = HEAT_BANDS[currentBand - 1];
+      newHeat = Math.max(newHeat, minHeat);
+    }
+  }
 
   // Threshold events
   if (newHeat >= BALANCING.HEAT_JOURNALIST_THRESHOLD && state.heat < BALANCING.HEAT_JOURNALIST_THRESHOLD) {
@@ -71,6 +99,16 @@ export function checkInvestigation(heat: number, random: SeededRandom): boolean 
     return random.chance(BALANCING.HEAT_INVESTIGATION_DAILY_CHANCE);
   }
   return false;
+}
+
+/**
+ * Get the budget penalty rate from the current heat level.
+ * Spec: -5% at journalist threshold (46-65), -10% at inquiry threshold (66-80).
+ */
+export function getHeatBudgetPenalty(heat: number): number {
+  if (heat >= BALANCING.HEAT_INQUIRY_THRESHOLD) return BALANCING.HEAT_INQUIRY_BUDGET_PENALTY;
+  if (heat >= BALANCING.HEAT_JOURNALIST_THRESHOLD) return BALANCING.HEAT_JOURNALIST_BUDGET_PENALTY;
+  return 0;
 }
 
 /**

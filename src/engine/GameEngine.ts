@@ -293,7 +293,11 @@ export function resolveDay(state: GameState): GameState {
   // 16. Calculate economy
   const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage);
   const fuelCosts = EconomyEngine.calculateCosts(s.plants, 0);
-  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta;
+  const heatPenalty = EconomyEngine.calculateHeatPenalty(s.budget, s.heat);
+  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta + heatPenalty;
+  if (heatPenalty > 0) {
+    dayEvents.push(`Legal fees from investigations: -R${heatPenalty}M`);
+  }
   const econResult = EconomyEngine.updateBudget(s.budget, revenue, totalDayCosts);
   s.budget = econResult.newBudget;
 

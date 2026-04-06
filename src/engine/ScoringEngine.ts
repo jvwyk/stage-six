@@ -18,7 +18,13 @@ export function calculateFinalScore(state: GameState): ScoreBreakdown {
     return { wealth: 0, stability: 0, trust: 0, total: 0 };
   }
 
-  // Fled — partial bag retained, apply score formula to reduced bag
+  if (state.gameOverReason === 'fled') {
+    // Fled — spec: score = (bag × 0.4) / maxPossibleBag × 100
+    // bag is already reduced to 40% by flee(), so use it directly
+    const fledScore = Math.round((state.bag / BALANCING.MAX_POSSIBLE_BAG) * 100);
+    return { wealth: fledScore, stability: 0, trust: 0, total: fledScore };
+  }
+
   const effectiveBag = state.bag;
 
   const avgStage = state.stageHistory.length > 0

@@ -1,6 +1,7 @@
 import type { RegionState, PlantState } from '../data/types';
 import { BALANCING } from '../data/balancing';
 import { getRageRevenuePenalty } from './RageEngine';
+import { getHeatBudgetPenalty } from './HeatEngine';
 
 export interface EconomyResult {
   revenue: number;
@@ -11,6 +12,7 @@ export interface EconomyResult {
 
 /**
  * Calculate daily revenue from electricity sales.
+ * Revenue is reduced by rage penalties (people stop paying).
  */
 export function calculateRevenue(regions: RegionState[], rage: number): number {
   const ragePenalty = getRageRevenuePenalty(rage);
@@ -22,6 +24,16 @@ export function calculateRevenue(regions: RegionState[], rage: number): number {
   }
 
   return Math.round(revenue * (1 - ragePenalty));
+}
+
+/**
+ * Calculate the heat-based budget penalty (legal fees from investigations).
+ * Spec: -5% at journalist threshold (46-65), -10% at inquiry threshold (66-80).
+ */
+export function calculateHeatPenalty(budget: number, heat: number): number {
+  const penaltyRate = getHeatBudgetPenalty(heat);
+  if (penaltyRate <= 0 || budget <= 0) return 0;
+  return Math.round(budget * penaltyRate);
 }
 
 /**
