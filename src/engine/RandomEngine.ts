@@ -43,14 +43,23 @@ export class SeededRandom {
     return this.next() < probability;
   }
 
-  /** Picks a random element from an array */
+  /** Picks a random element from an array. Throws if empty. */
   pick<T>(array: readonly T[]): T {
+    if (array.length === 0) {
+      throw new Error('RandomEngine.pick: cannot pick from empty array');
+    }
     return array[Math.floor(this.next() * array.length)];
   }
 
-  /** Picks a random element using weights */
+  /** Picks a random element using weights. Falls back to uniform if weights sum to zero. */
   weightedPick<T>(items: readonly T[], weights: readonly number[]): T {
+    if (items.length === 0) {
+      throw new Error('RandomEngine.weightedPick: cannot pick from empty array');
+    }
     const totalWeight = weights.reduce((a, b) => a + b, 0);
+    if (totalWeight <= 0) {
+      return this.pick(items);
+    }
     let roll = this.next() * totalWeight;
     for (let i = 0; i < items.length; i++) {
       roll -= weights[i];

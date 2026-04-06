@@ -60,7 +60,12 @@ export function tickActiveEvents(activeEvents: ActiveEvent[]): ActiveEvent[] {
       ...ae,
       remainingDays: ae.remainingDays - 1,
     }))
-    .filter((ae) => ae.remainingDays > 0 || ae.event.duration === 0);
+    .filter((ae) => {
+      // Instant events (duration 0) are removed after one tick
+      if (ae.event.duration === 0) return false;
+      // Duration events persist while they have remaining days
+      return ae.remainingDays > 0;
+    });
 }
 
 /**
@@ -83,11 +88,7 @@ export function getActiveEventEffects(
   let budgetDelta = 0;
 
   for (const ae of activeEvents) {
-    // Only apply ongoing effects for events with duration > 0
-    // Instant events (duration === 0) apply effects once when triggered
-    if (ae.event.duration === 0 && ae.remainingDays <= 0) continue;
-
-    for (const effect of ae.event.effects) {
+    const applyEffect = (effect: { type: string; target?: string; value: number }) => {
       switch (effect.type) {
         case 'supply':
           supplyModifier += effect.value;
@@ -108,6 +109,11 @@ export function getActiveEventEffects(
           budgetDelta += effect.value;
           break;
       }
+    };
+
+    // Apply base event effects
+    for (const effect of ae.event.effects) {
+      applyEffect(effect);
     }
 
     // Apply choice effects if a choice was made
@@ -115,17 +121,7 @@ export function getActiveEventEffects(
       const choice = ae.event.choices[ae.choiceMade];
       if (choice) {
         for (const effect of choice.effects) {
-          switch (effect.type) {
-            case 'rage':
-              rageDelta += effect.value;
-              break;
-            case 'heat':
-              heatDelta += effect.value;
-              break;
-            case 'budget':
-              budgetDelta += effect.value;
-              break;
-          }
+          applyEffect(effect);
         }
       }
     }

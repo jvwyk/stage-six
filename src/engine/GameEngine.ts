@@ -200,6 +200,14 @@ export function resolveDay(state: GameState): GameState {
   s.heat = heatResult.newHeat;
   dayEvents.push(...heatResult.events);
 
+  // 13b. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
+  if (HeatEngine.checkInvestigation(s.heat, random) && s.corruptionLog.length > 0) {
+    const exposedDeal = random.pick(s.corruptionLog);
+    dayRageFromDeals += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
+    dayBudgetFromDeals -= BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
+    dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
+  }
+
   // 14. Calculate rage
   const stageChanged = s.stageHistory.length > 0 &&
     s.stageHistory[s.stageHistory.length - 1] !== s.currentStage;

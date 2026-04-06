@@ -52,7 +52,7 @@ export function rollFailures(plants: PlantState[], random: SeededRandom): PlantS
   if (anyFailed) {
     return results.map((plant) => {
       if (plant.status === 'online' || plant.status === 'derated') {
-        if (plant.failureDebt > 80 && random.chance(BALANCING.CASCADE_FAILURE_BONUS)) {
+        if (plant.failureDebt > BALANCING.PLANT_CASCADE_DEBT_THRESHOLD && random.chance(BALANCING.CASCADE_FAILURE_BONUS)) {
           return {
             ...plant,
             status: 'forced_outage' as const,
@@ -146,10 +146,15 @@ export function tickFailureDebt(plants: PlantState[]): PlantState[] {
       debtIncrease += BALANCING.FAILURE_DEBT_OVERLOAD_INCREASE;
     }
 
+    // Don't increment maintenance counter on the day maintenance completes
+    const newDaysSince = plant.daysSinceLastMaintenance === 0
+      ? 0
+      : plant.daysSinceLastMaintenance + 1;
+
     return {
       ...plant,
-      failureDebt: Math.min(100, plant.failureDebt + debtIncrease),
-      daysSinceLastMaintenance: plant.daysSinceLastMaintenance + 1,
+      failureDebt: Math.min(BALANCING.PLANT_FAILURE_DEBT_MAX, plant.failureDebt + debtIncrease),
+      daysSinceLastMaintenance: newDaysSince,
     };
   });
 }

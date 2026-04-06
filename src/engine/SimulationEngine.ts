@@ -44,28 +44,40 @@ export function allocateSupply(
 ): RegionState[] {
   const demandCut = BALANCING.STAGE_DEMAND_CUT[stage] || 0;
   const totalDemand = regions.reduce((sum, r) => sum + r.currentDemand, 0);
-  const effectiveDemand = Math.round(totalDemand * (1 - demandCut));
+  const effectiveDemand = totalDemand * (1 - demandCut);
 
   // Available supply to distribute
   const supplyToDistribute = Math.min(totalSupply, effectiveDemand);
 
-  // Calculate inverse priority weights for shedding distribution
+  // Calculate priority weights for distribution
   const totalPriority = regions.reduce((sum, r) => sum + r.priorityWeight, 0);
+  if (totalPriority <= 0) {
+    return regions.map((region) => ({ ...region, currentSupply: 0 }));
+  }
 
-  return regions.map((region) => {
-    // Each region gets supply proportional to its priority weight
+  // Allocate using largest remainder method to avoid rounding loss
+  const rawAllocations = regions.map((region) => {
     const shareRatio = region.priorityWeight / totalPriority;
-    const idealSupply = Math.round(supplyToDistribute * shareRatio);
-
-    // Cap at the region's effective demand
-    const regionEffectiveDemand = Math.round(region.currentDemand * (1 - demandCut));
-    const allocated = Math.min(idealSupply, regionEffectiveDemand);
-
-    return {
-      ...region,
-      currentSupply: allocated,
-    };
+    const regionEffectiveDemand = region.currentDemand * (1 - demandCut);
+    return Math.min(supplyToDistribute * shareRatio, regionEffectiveDemand);
   });
+
+  // Floor all values first, then distribute remainders
+  const floored = rawAllocations.map(Math.floor);
+  let remainder = Math.round(supplyToDistribute) - floored.reduce((a, b) => a + b, 0);
+  const remainders = rawAllocations.map((raw, i) => ({ index: i, frac: raw - floored[i] }));
+  remainders.sort((a, b) => b.frac - a.frac);
+
+  for (const r of remainders) {
+    if (remainder <= 0) break;
+    floored[r.index]++;
+    remainder--;
+  }
+
+  return regions.map((region, i) => ({
+    ...region,
+    currentSupply: floored[i],
+  }));
 }
 
 /**
