@@ -16,19 +16,33 @@ import { BALANCING } from './data/balancing';
 import type { Opportunity } from './data/types';
 
 function App() {
-  const {
-    game, screen, setScreen, newGame, resumeGame, takeDeal, cleanDeal, skipDeal,
-    setStage, activateDiesel, scheduleMaintenance, makeEventChoice, endDay, continueTomorrow, flee, abandonRun,
-  } = useGameStore();
-  const { runs, stats, loadFromStorage: loadHistory, clearHistory } = useHistoryStore();
-  const loadSettings = useSettingsStore((s) => s.loadFromStorage);
+  const game = useGameStore((s) => s.game);
+  const screen = useGameStore((s) => s.screen);
+  const setScreen = useGameStore((s) => s.setScreen);
+  const newGame = useGameStore((s) => s.newGame);
+  const resumeGame = useGameStore((s) => s.resumeGame);
+  const takeDeal = useGameStore((s) => s.takeDeal);
+  const cleanDeal = useGameStore((s) => s.cleanDeal);
+  const skipDeal = useGameStore((s) => s.skipDeal);
+  const setStage = useGameStore((s) => s.setStage);
+  const activateDiesel = useGameStore((s) => s.activateDiesel);
+  const scheduleMaintenance = useGameStore((s) => s.scheduleMaintenance);
+  const makeEventChoice = useGameStore((s) => s.makeEventChoice);
+  const endDay = useGameStore((s) => s.endDay);
+  const continueTomorrow = useGameStore((s) => s.continueTomorrow);
+  const flee = useGameStore((s) => s.flee);
+  const abandonRun = useGameStore((s) => s.abandonRun);
+
+  const runs = useHistoryStore((s) => s.runs);
+  const stats = useHistoryStore((s) => s.stats);
+  const clearHistory = useHistoryStore((s) => s.clearHistory);
 
   const [selectedDeal, setSelectedDeal] = useState<Opportunity | null>(null);
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
-    loadHistory();
-    loadSettings();
+    useHistoryStore.getState().loadFromStorage();
+    useSettingsStore.getState().loadFromStorage();
   }, []);
 
   return (

@@ -14,12 +14,12 @@ export function rollFailures(plants: PlantState[], random: SeededRandom): PlantS
     }
 
     const baseFailChance = (100 - plant.reliability) / 100;
-    const adjustedFailChance = baseFailChance * (1 + plant.failureDebt / 50);
-    const clampedChance = Math.min(adjustedFailChance, 0.80);
+    const adjustedFailChance = baseFailChance * (1 + plant.failureDebt / BALANCING.PLANT_FAILURE_DEBT_DIVISOR);
+    const clampedChance = Math.min(adjustedFailChance, BALANCING.PLANT_FAILURE_MAX_CHANCE);
 
     if (random.chance(clampedChance)) {
       // Determine if full outage or derate
-      if (random.chance(0.35)) {
+      if (random.chance(BALANCING.PLANT_FAILURE_OUTAGE_CHANCE)) {
         // Full forced outage
         anyFailed = true;
         return {

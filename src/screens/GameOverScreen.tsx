@@ -4,6 +4,7 @@ import { Card } from '../components/shared/Card';
 import { MeterBar } from '../components/shared/MeterBar';
 import { formatMoney } from '../utils/format';
 import type { GameState, EndReason } from '../data/types';
+import { copyToClipboard } from '../utils/share';
 import { calculateFinalScore, assignTitle, generateShareText } from '../engine/ScoringEngine';
 import { BALANCING } from '../data/balancing';
 
@@ -19,6 +20,7 @@ const REASON_LABELS: Record<EndReason, { title: string; icon: string }> = {
   collapse: { title: 'TOTAL GRID COLLAPSE', icon: '\u{1F4A5}' },
   bankrupt: { title: 'GRID WENT BANKRUPT', icon: '\u{1F4B8}' },
   survived: { title: 'YOU SURVIVED!', icon: '\u{1F3C6}' },
+  fled: { title: 'FLED THE COUNTRY', icon: '\u2708\uFE0F' },
 };
 
 export function GameOverScreen({ game, onRestart, onTitle }: GameOverScreenProps) {
@@ -30,7 +32,7 @@ export function GameOverScreen({ game, onRestart, onTitle }: GameOverScreenProps
   const isSurvived = reason === 'survived';
 
   const copyShare = () => {
-    navigator.clipboard.writeText(shareText).catch(() => {});
+    copyToClipboard(shareText);
   };
 
   return (

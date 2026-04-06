@@ -18,20 +18,23 @@ export function calculateFinalScore(state: GameState): ScoreBreakdown {
     return { wealth: 0, stability: 0, trust: 0, total: 0 };
   }
 
+  // Fled — partial bag retained, apply score formula to reduced bag
+  const effectiveBag = state.bag;
+
   const avgStage = state.stageHistory.length > 0
     ? state.stageHistory.reduce((a, b) => a + b, 0) / state.stageHistory.length
     : state.currentStage;
 
   // Wealth score (40% weight)
-  const wealthRatio = Math.min(state.bag / BALANCING.MAX_POSSIBLE_BAG, 1);
+  const wealthRatio = Math.min(effectiveBag / BALANCING.MAX_POSSIBLE_BAG, 1);
   const wealth = Math.round(wealthRatio * 100);
 
   // Stability score (40% weight) — lower avg stage = better
-  const stabilityRatio = Math.max(0, 1 - avgStage / 8);
+  const stabilityRatio = Math.max(0, 1 - avgStage / BALANCING.STAGE_DEMAND_CUT.length);
   const stability = Math.round(stabilityRatio * 100);
 
   // Trust score (20% weight) — lower rage = better
-  const trustRatio = Math.max(0, (100 - state.rage) / 100);
+  const trustRatio = Math.max(0, (BALANCING.RAGE_REVOLT_THRESHOLD - state.rage) / BALANCING.RAGE_REVOLT_THRESHOLD);
   const trust = Math.round(trustRatio * 100);
 
   const total = Math.round(
@@ -47,16 +50,16 @@ export function calculateFinalScore(state: GameState): ScoreBreakdown {
  * Assign a title based on the player's performance.
  */
 export function assignTitle(state: GameState): string {
-  // Exile is special — assigned manually when fleeing
-  if (state.gameOverReason === 'survived' || state.gameOverReason === 'heat' ||
-      state.gameOverReason === 'rage' || state.gameOverReason === 'collapse' ||
-      state.gameOverReason === 'bankrupt') {
-    // Sort by priority and find first matching
-    const sorted = [...TITLES].sort((a, b) => a.priority - b.priority);
-    for (const title of sorted) {
-      if (title.id !== 'exile' && title.condition(state)) {
-        return title.title;
-      }
+  // Exile is always assigned when player flees
+  if (state.gameOverReason === 'fled') {
+    return 'Exile';
+  }
+
+  // Sort by priority and find first matching
+  const sorted = [...TITLES].sort((a, b) => a.priority - b.priority);
+  for (const title of sorted) {
+    if (title.id !== 'exile' && title.condition(state)) {
+      return title.title;
     }
   }
 
@@ -77,6 +80,7 @@ export function generateShareText(
     collapse: 'Total grid collapse',
     bankrupt: 'Grid went bankrupt',
     survived: 'Survived all 30 days',
+    fled: 'Fled the country with the loot',
   };
 
   const dealCount = state.corruptionLog.length;

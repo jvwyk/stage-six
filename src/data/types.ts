@@ -209,7 +209,7 @@ export interface PlayerActions {
 
 // ── End Conditions ──
 
-export type EndReason = 'heat' | 'rage' | 'collapse' | 'bankrupt' | 'survived';
+export type EndReason = 'heat' | 'rage' | 'collapse' | 'bankrupt' | 'survived' | 'fled';
 
 export interface EndCondition {
   reason: EndReason;

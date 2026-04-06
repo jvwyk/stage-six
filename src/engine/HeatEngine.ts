@@ -28,7 +28,7 @@ export function calculateDailyHeat(
   }
 
   const added = heatAdded;
-  const newHeat = Math.max(0, Math.min(100, state.heat + added - decay));
+  const newHeat = Math.max(0, Math.min(BALANCING.HEAT_MAX, state.heat + added - decay));
 
   // Threshold events
   if (newHeat >= BALANCING.HEAT_JOURNALIST_THRESHOLD && state.heat < BALANCING.HEAT_JOURNALIST_THRESHOLD) {

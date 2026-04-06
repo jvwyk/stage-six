@@ -30,7 +30,7 @@ export function calculateDailyRage(
     if (region.currentDemand > 0) {
       const shortfallRatio = 1 - (region.currentSupply / region.currentDemand);
       if (shortfallRatio > 0) {
-        const regionRageDelta = shortfallRatio * 10 * region.rageSensitivity;
+        const regionRageDelta = shortfallRatio * BALANCING.RAGE_SHORTFALL_MULTIPLIER * region.rageSensitivity;
         perRegionRage.set(region.id, regionRageDelta);
         rageDelta += regionRageDelta;
       }
@@ -60,7 +60,7 @@ export function calculateDailyRage(
   // Natural decay
   rageDelta -= BALANCING.RAGE_NATURAL_DECAY;
 
-  const newRage = Math.max(0, Math.min(100, state.rage + rageDelta));
+  const newRage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, state.rage + rageDelta));
 
   // Rage threshold events
   if (newRage >= BALANCING.RAGE_FURIOUS_THRESHOLD && state.rage < BALANCING.RAGE_FURIOUS_THRESHOLD) {
@@ -88,21 +88,21 @@ export function updateRegionRage(regions: RegionState[]): RegionState[] {
     const shortfallRatio = 1 - (region.currentSupply / region.currentDemand);
     let rageChange = 0;
 
-    if (shortfallRatio > 0.1) {
-      rageChange = shortfallRatio * 8 * region.rageSensitivity;
+    if (shortfallRatio > BALANCING.RAGE_REGION_SHORTFALL_THRESHOLD) {
+      rageChange = shortfallRatio * BALANCING.RAGE_REGION_SHORTFALL_MULTIPLIER * region.rageSensitivity;
       // Regions that are repeatedly shed get angrier faster
-      if (region.consecutiveSheddingDays > 2) {
-        rageChange *= 1.2;
+      if (region.consecutiveSheddingDays > BALANCING.RAGE_CONSECUTIVE_SHEDDING_DAYS) {
+        rageChange *= BALANCING.RAGE_CONSECUTIVE_SHEDDING_MULTIPLIER;
       }
     } else {
-      rageChange = -1; // Small decay when adequately supplied
+      rageChange = -BALANCING.RAGE_REGION_DECAY;
     }
 
-    const newConsecutive = shortfallRatio > 0.1 ? region.consecutiveSheddingDays + 1 : 0;
+    const newConsecutive = shortfallRatio > BALANCING.RAGE_REGION_SHORTFALL_THRESHOLD ? region.consecutiveSheddingDays + 1 : 0;
 
     return {
       ...region,
-      rage: Math.max(0, Math.min(100, region.rage + rageChange)),
+      rage: Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, region.rage + rageChange)),
       consecutiveSheddingDays: newConsecutive,
     };
   });

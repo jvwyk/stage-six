@@ -209,7 +209,7 @@ export function resolveDay(state: GameState): GameState {
     stageChanged,
     didCleanMaintenance,
   );
-  s.rage = Math.max(0, Math.min(100, rageResult.newRage + dayRageFromDeals + eventEffects.rageDelta));
+  s.rage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, rageResult.newRage + dayRageFromDeals + eventEffects.rageDelta));
   dayEvents.push(...rageResult.rageEvents);
 
   // 15. Calculate economy
@@ -392,7 +392,7 @@ export function flee(state: GameState): GameState {
     ...state,
     bag: Math.round(state.bag * BALANCING.FLEE_BAG_RETENTION),
     gameOver: true,
-    gameOverReason: 'survived', // Treated as survived but with reduced bag
+    gameOverReason: 'fled',
     phase: 'game_over',
   };
 }

@@ -35,12 +35,12 @@ export function generateOpportunities(
     let weight = op.weight;
 
     // Later days favor higher tiers
-    if (day > 15 && op.tier >= 3) weight *= 1.5;
-    if (day > 20 && op.tier >= 4) weight *= 2;
+    if (day > BALANCING.OPPORTUNITY_LATE_TIER3_DAY && op.tier >= 3) weight *= BALANCING.OPPORTUNITY_LATE_TIER3_WEIGHT_BONUS;
+    if (day > BALANCING.OPPORTUNITY_LATE_TIER4_DAY && op.tier >= 4) weight *= BALANCING.OPPORTUNITY_LATE_TIER4_WEIGHT_BONUS;
 
     // Low heat = more temptation (risky deals appear more)
-    if (heat < 30 && (op.riskLevel === 'high' || op.riskLevel === 'extreme')) {
-      weight *= 1.3;
+    if (heat < BALANCING.OPPORTUNITY_LOW_HEAT_THRESHOLD && (op.riskLevel === 'high' || op.riskLevel === 'extreme')) {
+      weight *= BALANCING.OPPORTUNITY_LOW_HEAT_RISKY_BONUS;
     }
 
     return weight;
@@ -110,7 +110,7 @@ export function applyTakeDeal(
   if (opportunity.failChance > 0 && random.chance(opportunity.failChance)) {
     failed = true;
     failMessage = opportunity.failConsequence;
-    heatGain += 30; // Exposed deals add extra heat
+    heatGain += BALANCING.OPPORTUNITY_FAIL_EXTRA_HEAT;
   }
 
   const corruptionEntry: CorruptionEntry = {

@@ -5,6 +5,7 @@ import { Card } from '../components/shared/Card';
 import { MeterBar } from '../components/shared/MeterBar';
 import { formatMoney } from '../utils/format';
 import type { GameState } from '../data/types';
+import { copyToClipboard } from '../utils/share';
 import { calculateFinalScore, assignTitle, generateShareText } from '../engine/ScoringEngine';
 import { BALANCING } from '../data/balancing';
 
@@ -24,7 +25,7 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
   useEffect(() => { setTimeout(() => setReveal(true), 200); }, []);
 
   const copyShare = () => {
-    navigator.clipboard.writeText(shareText).catch(() => {});
+    copyToClipboard(shareText);
   };
 
   return (
