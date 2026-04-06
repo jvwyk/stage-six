@@ -92,7 +92,7 @@ export function DashboardScreen({
           <div style={{ display: 'flex', gap: 4, marginTop: 10, justifyContent: 'center' }}>
             {Array.from({ length: 9 }, (_, i) => (
               <button key={i} onClick={() => onStageChange(i)} style={{
-                width: 34, height: 34,
+                minWidth: 38, minHeight: 44,
                 background: i === game.currentStage
                   ? (i >= 6 ? tokens.color.red : i >= 4 ? tokens.color.amber : tokens.color.green)
                   : tokens.color.raised,

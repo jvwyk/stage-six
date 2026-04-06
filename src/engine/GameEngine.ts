@@ -1,4 +1,4 @@
-import type { GameState, DayReport, EndCondition, PlantState, RegionState, PlayerActions } from '../data/types';
+import type { GameState, DayReport, EndCondition, PlantState, RegionState, PlayerActions, GridEffect } from '../data/types';
 import { BALANCING } from '../data/balancing';
 import { PLANTS } from '../data/plants';
 import { REGIONS } from '../data/regions';
@@ -92,11 +92,75 @@ export function createEmptyActions(): PlayerActions {
 }
 
 /**
+ * Apply a grid effect from a deal to the plant fleet.
+ */
+function applyGridEffect(plants: PlantState[], effect: GridEffect, random: SeededRandom): PlantState[] {
+  if (effect.type === 'none') return plants;
+
+  return plants.map((plant) => {
+    switch (effect.type) {
+      case 'capacity_change': {
+        if (effect.target === 'all' || effect.target === plant.id) {
+          const newOutput = Math.max(0, Math.min(plant.maxCapacity, plant.currentOutput + effect.value));
+          return { ...plant, currentOutput: newOutput };
+        }
+        return plant;
+      }
+      case 'reliability_change': {
+        if (effect.target === plant.id) {
+          return { ...plant, reliability: Math.max(0, Math.min(100, plant.reliability + effect.value)) };
+        }
+        return plant;
+      }
+      case 'plant_repair': {
+        // Repair a random plant that needs it, or a specific one
+        if (effect.target === 'random' && (plant.status === 'forced_outage' || plant.status === 'derated')) {
+          return {
+            ...plant,
+            daysUntilRepair: Math.max(0, plant.daysUntilRepair - effect.value),
+          };
+        }
+        if (effect.target === plant.id) {
+          return {
+            ...plant,
+            daysUntilRepair: Math.max(0, plant.daysUntilRepair - effect.value),
+          };
+        }
+        return plant;
+      }
+      case 'plant_damage': {
+        if (effect.target === 'random_two' && random.chance(0.5)) {
+          return {
+            ...plant,
+            status: 'forced_outage' as const,
+            currentOutput: 0,
+            daysUntilRepair: 999, // Permanent
+          };
+        }
+        return plant;
+      }
+      default:
+        return plant;
+    }
+  });
+}
+
+/**
  * Resolve a full day. Returns the updated state with a day report.
  */
 export function resolveDay(state: GameState): GameState {
   const random = new SeededRandom(`${state.seed}-day-${state.day}`);
   let s = { ...state };
+
+  const dayEvents: string[] = [];
+  let daySkimmed = 0;
+  let dayHeatAdded = 0;
+  let dayBudgetCosts = 0;
+  let dayRageFromActions = 0;
+  let tookCorruptAction = false;
+  let didCleanMaintenance = false;
+
+  // ── PHASE 1: World Update ──
 
   // 1. Tick plant timers (repairs/maintenance complete)
   s.plants = PlantEngine.tickPlantTimers(s.plants);
@@ -108,38 +172,46 @@ export function resolveDay(state: GameState): GameState {
   const prePlants = [...s.plants];
   s.plants = PlantEngine.rollFailures(s.plants, random);
   const plantFailures = PlantEngine.getFailedPlantNames(prePlants, s.plants);
+  for (const name of plantFailures) {
+    dayEvents.push(`${name} suffered a failure`);
+  }
 
-  // 4. Get event effects
+  // 4. Get active event effects
   const eventEffects = EventEngine.getActiveEventEffects(s.activeEvents);
 
-  // 5. Calculate demand with event modifiers
-  s.regions = SimulationEngine.calculateDemand(
-    s.regions,
-    s.day,
-    random,
-    eventEffects.demandModifiers,
-  );
+  // ── PHASE 2: Player Actions ──
 
-  // 6. Get available supply (accounting for event supply modifiers)
-  const baseSupply = PlantEngine.getAvailableCapacity(s.plants);
-  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier);
+  // 5. Apply diesel activations (BEFORE supply calc so they help today)
+  for (const plantId of s.playerActions.dieselActivated) {
+    const idx = s.plants.findIndex((p) => p.id === plantId);
+    if (idx >= 0 && s.plants[idx].type === 'diesel' && s.plants[idx].status === 'standby') {
+      s.plants = [
+        ...s.plants.slice(0, idx),
+        PlantEngine.activateDiesel(s.plants[idx]),
+        ...s.plants.slice(idx + 1),
+      ];
+      dayBudgetCosts += BALANCING.DIESEL_ACTIVATION_COST;
+      dayEvents.push(`${s.plants[idx].name} diesel plant activated`);
+    }
+  }
 
-  // 7. Allocate supply across regions
-  s.regions = SimulationEngine.allocateSupply(totalSupply, s.regions, s.currentStage);
-  const gridResult = SimulationEngine.calculateDeficit(s.regions);
+  // 6. Apply maintenance scheduled
+  for (const plantId of s.playerActions.maintenanceScheduled) {
+    const idx = s.plants.findIndex((p) => p.id === plantId);
+    if (idx >= 0 && (s.plants[idx].status === 'online' || s.plants[idx].status === 'derated')) {
+      didCleanMaintenance = true;
+      const maintenanceCost = random.range(BALANCING.MAINTENANCE_COST_MIN, BALANCING.MAINTENANCE_COST_MAX);
+      dayBudgetCosts += maintenanceCost;
+      s.plants = [
+        ...s.plants.slice(0, idx),
+        PlantEngine.applyMaintenance(s.plants[idx], false, random),
+        ...s.plants.slice(idx + 1),
+      ];
+      dayEvents.push(`${s.plants[idx].name} taken offline for maintenance (R${maintenanceCost}M)`);
+    }
+  }
 
-  // 8. Update region rage
-  s.regions = RageEngine.updateRegionRage(s.regions);
-
-  // 9. Calculate deal outcomes
-  let daySkimmed = 0;
-  let dayHeatAdded = 0;
-  let dayBudgetFromDeals = 0;
-  let dayRageFromDeals = 0;
-  let tookCorruptAction = false;
-  let didCleanMaintenance = false;
-  const dayEvents: string[] = [];
-
+  // 7. Process deal outcomes and apply grid effects
   for (const deal of s.playerActions.deals) {
     const opp = s.todaysOpportunities.find((o) => o.id === deal.opportunityId);
     if (!opp) continue;
@@ -150,47 +222,45 @@ export function resolveDay(state: GameState): GameState {
       result.corruptionEntry.day = s.day;
       daySkimmed += result.bagGain;
       dayHeatAdded += result.heatGain;
-      dayBudgetFromDeals -= result.budgetCost;
-      dayRageFromDeals += result.rageEffect;
+      dayBudgetCosts += result.budgetCost;
+      dayRageFromActions += result.rageEffect;
       s.corruptionLog = [...s.corruptionLog, result.corruptionEntry];
+      s.plants = applyGridEffect(s.plants, result.gridEffect, random);
       dayEvents.push(`You took the ${opp.title} deal and pocketed R${opp.skimAmount}M`);
       if (result.failed) {
         dayEvents.push(`Deal went wrong: ${result.failMessage}`);
       }
     } else if (deal.choice === 'clean') {
       const result = OpportunityEngine.applyCleanDeal(opp);
-      dayBudgetFromDeals -= result.budgetCost;
-      dayRageFromDeals += result.rageEffect;
+      dayBudgetCosts += result.budgetCost;
+      dayRageFromActions += result.rageEffect;
+      s.plants = applyGridEffect(s.plants, result.gridEffect, random);
       dayEvents.push(`You awarded ${opp.title} as a clean contract`);
     }
   }
 
-  // 10. Apply maintenance scheduled
-  for (const plantId of s.playerActions.maintenanceScheduled) {
-    const idx = s.plants.findIndex((p) => p.id === plantId);
-    if (idx >= 0 && (s.plants[idx].status === 'online' || s.plants[idx].status === 'derated')) {
-      didCleanMaintenance = true;
-      s.plants = [
-        ...s.plants.slice(0, idx),
-        PlantEngine.applyMaintenance(s.plants[idx], false, random),
-        ...s.plants.slice(idx + 1),
-      ];
-      dayEvents.push(`${s.plants[idx].name} taken offline for maintenance`);
-    }
-  }
+  // ── PHASE 3: Simulation ──
 
-  // 11. Apply diesel activations
-  for (const plantId of s.playerActions.dieselActivated) {
-    const idx = s.plants.findIndex((p) => p.id === plantId);
-    if (idx >= 0) {
-      s.plants = [
-        ...s.plants.slice(0, idx),
-        PlantEngine.activateDiesel(s.plants[idx]),
-        ...s.plants.slice(idx + 1),
-      ];
-      dayEvents.push(`${s.plants[idx].name} diesel plant activated`);
-    }
-  }
+  // 8. Calculate demand with event modifiers
+  s.regions = SimulationEngine.calculateDemand(
+    s.regions,
+    s.day,
+    random,
+    eventEffects.demandModifiers,
+  );
+
+  // 9. Get available supply (accounting for event supply modifiers)
+  const baseSupply = PlantEngine.getAvailableCapacity(s.plants);
+  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier);
+
+  // 10. Allocate supply across regions
+  s.regions = SimulationEngine.allocateSupply(totalSupply, s.regions, s.currentStage);
+  const gridResult = SimulationEngine.calculateDeficit(s.regions);
+
+  // 11. Update region rage
+  s.regions = RageEngine.updateRegionRage(s.regions);
+
+  // ── PHASE 4: Consequences ──
 
   // 12. Update bag
   s.bag = s.bag + daySkimmed;
@@ -200,15 +270,15 @@ export function resolveDay(state: GameState): GameState {
   s.heat = heatResult.newHeat;
   dayEvents.push(...heatResult.events);
 
-  // 13b. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
+  // 14. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
   if (HeatEngine.checkInvestigation(s.heat, random) && s.corruptionLog.length > 0) {
     const exposedDeal = random.pick(s.corruptionLog);
-    dayRageFromDeals += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
-    dayBudgetFromDeals -= BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
+    dayRageFromActions += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
+    dayBudgetCosts += BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
     dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
   }
 
-  // 14. Calculate rage
+  // 15. Calculate rage
   const stageChanged = s.stageHistory.length > 0 &&
     s.stageHistory[s.stageHistory.length - 1] !== s.currentStage;
   const rageResult = RageEngine.calculateDailyRage(
@@ -217,37 +287,33 @@ export function resolveDay(state: GameState): GameState {
     stageChanged,
     didCleanMaintenance,
   );
-  s.rage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, rageResult.newRage + dayRageFromDeals + eventEffects.rageDelta));
+  s.rage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, rageResult.newRage + dayRageFromActions + eventEffects.rageDelta));
   dayEvents.push(...rageResult.rageEvents);
 
-  // 15. Calculate economy
+  // 16. Calculate economy
   const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage);
-  const costs = EconomyEngine.calculateCosts(s.plants, 0);
-  const econResult = EconomyEngine.updateBudget(
-    s.budget + dayBudgetFromDeals + eventEffects.budgetDelta,
-    revenue,
-    costs,
-  );
+  const fuelCosts = EconomyEngine.calculateCosts(s.plants, 0);
+  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta;
+  const econResult = EconomyEngine.updateBudget(s.budget, revenue, totalDayCosts);
   s.budget = econResult.newBudget;
 
-  // 16. Track bankruptcy days
+  // 17. Track bankruptcy days
   if (s.budget < 0) {
     s.bankruptcyDays = s.bankruptcyDays + 1;
   } else {
     s.bankruptcyDays = 0;
   }
 
-  // 17. Track consecutive low supply days
+  // 18. Track consecutive low supply days
   if (gridResult.supplyRatio < BALANCING.GRID_COLLAPSE_SUPPLY_RATIO) {
     s.consecutiveLowSupplyDays = s.consecutiveLowSupplyDays + 1;
   } else {
     s.consecutiveLowSupplyDays = 0;
   }
 
-  // 18. Tick active events
-  s.activeEvents = EventEngine.tickActiveEvents(s.activeEvents);
+  // ── PHASE 5: Events ──
 
-  // 19. Roll new events
+  // 19. Roll new events (BEFORE tick so new events get their full duration)
   const newEvents = EventEngine.rollNewEvents(s, random);
   if (newEvents.length > 0) {
     s.activeEvents = [...s.activeEvents, ...newEvents];
@@ -256,10 +322,8 @@ export function resolveDay(state: GameState): GameState {
     }
   }
 
-  // 20. Record plant failures
-  for (const name of plantFailures) {
-    dayEvents.push(`${name} suffered a failure`);
-  }
+  // 20. Tick active events (after effects applied, before next day)
+  s.activeEvents = EventEngine.tickActiveEvents(s.activeEvents);
 
   // 21. Update histories
   s.bagHistory = [...s.bagHistory, s.bag];
@@ -290,11 +354,11 @@ export function resolveDay(state: GameState): GameState {
       : s.currentStage,
     heatDelta: heatResult.heatDelta,
     rageDelta: rageResult.rageDelta,
-    budgetDelta: econResult.budgetDelta + dayBudgetFromDeals + eventEffects.budgetDelta,
+    budgetDelta: econResult.budgetDelta,
     events: dayEvents,
     plantFailures,
     revenue,
-    costs,
+    costs: totalDayCosts,
     supplyTotal: gridResult.totalSupply,
     demandTotal: gridResult.totalDemand,
   };

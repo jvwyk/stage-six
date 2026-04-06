@@ -1,4 +1,4 @@
-import type { Opportunity, CorruptionEntry } from '../data/types';
+import type { Opportunity, CorruptionEntry, GridEffect } from '../data/types';
 import { OPPORTUNITIES } from '../data/opportunities';
 import { BALANCING } from '../data/balancing';
 import type { SeededRandom } from './RandomEngine';
@@ -98,6 +98,7 @@ export function applyTakeDeal(
   heatGain: number;
   budgetCost: number;
   rageEffect: number;
+  gridEffect: GridEffect;
   failed: boolean;
   failMessage: string;
   corruptionEntry: CorruptionEntry;
@@ -126,6 +127,7 @@ export function applyTakeDeal(
     heatGain,
     budgetCost: opportunity.budgetCost,
     rageEffect: opportunity.rageEffect,
+    gridEffect: opportunity.gridEffect,
     failed,
     failMessage,
     corruptionEntry,
@@ -133,17 +135,19 @@ export function applyTakeDeal(
 }
 
 /**
- * Apply a "clean deal" action. No skim, no heat, better grid effect.
+ * Apply a "clean deal" action. No skim, no heat, same grid effect.
  */
 export function applyCleanDeal(
   opportunity: Opportunity,
 ): {
   budgetCost: number;
   rageEffect: number;
+  gridEffect: GridEffect;
 } {
   return {
     budgetCost: opportunity.budgetCost,
     rageEffect: Math.min(0, opportunity.rageEffect), // Only negative rage (good)
+    gridEffect: opportunity.gridEffect,
   };
 }
 
