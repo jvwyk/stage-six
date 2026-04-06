@@ -266,10 +266,14 @@ export interface GameState {
   consecutiveLowSupplyDays: number;
   demandMetDays: number;
 
+  consecutiveGoodDays: number;
+  totalDefection: number;
+
   // Budget recovery
   tariffIncreases: number;
   tariffMultiplier: number;
   bailoutUsed: boolean;
+  emergencyLevyUsed: boolean;
 
   // Hidden corruption mechanics
   auditRisk: number;

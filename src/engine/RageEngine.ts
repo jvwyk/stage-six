@@ -138,13 +138,25 @@ export function updateRegionRage(regions: RegionState[]): RegionState[] {
  * Apply public defection — at extreme rage, public switches to solar/generators.
  * Reduces base demand (sounds good but kills tariff revenue).
  */
-export function applyPublicDefection(regions: RegionState[], rage: number): RegionState[] {
-  if (rage < BALANCING.RAGE_DEFECTION_THRESHOLD) return regions;
+export function applyPublicDefection(
+  regions: RegionState[],
+  rage: number,
+  totalDefection: number,
+): { regions: RegionState[]; newTotalDefection: number } {
+  if (rage < BALANCING.RAGE_DEFECTION_THRESHOLD || totalDefection >= BALANCING.RAGE_DEFECTION_MAX) {
+    return { regions, newTotalDefection: totalDefection };
+  }
 
-  return regions.map((region) => ({
-    ...region,
-    baseDemand: Math.round(region.baseDemand * (1 - BALANCING.RAGE_DEFECTION_RATE)),
-  }));
+  const newTotal = Math.min(totalDefection + BALANCING.RAGE_DEFECTION_RATE, BALANCING.RAGE_DEFECTION_MAX);
+  const dailyRate = BALANCING.RAGE_DEFECTION_RATE;
+
+  return {
+    regions: regions.map((region) => ({
+      ...region,
+      baseDemand: Math.round(region.baseDemand * (1 - dailyRate)),
+    })),
+    newTotalDefection: newTotal,
+  };
 }
 
 /**

@@ -8,6 +8,7 @@ const KEYS = {
   HISTORY: 'stage6_history',
   SETTINGS: 'stage6_settings',
   STATS: 'stage6_stats',
+  TUTORIAL_SEEN: 'stage6_tutorial_seen',
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -46,7 +47,22 @@ function safeSave(key: string, value: unknown): void {
 }
 
 export function loadCurrentRun(): GameState | null {
-  return safeLoad<GameState>(KEYS.CURRENT_RUN);
+  const state = safeLoad<GameState>(KEYS.CURRENT_RUN);
+  if (!state) return null;
+
+  // Migrate old saves: fill defaults for fields added after initial release
+  return {
+    ...state,
+    demandMetDays: state.demandMetDays ?? 0,
+    consecutiveGoodDays: state.consecutiveGoodDays ?? 0,
+    totalDefection: state.totalDefection ?? 0,
+    tariffIncreases: state.tariffIncreases ?? 0,
+    tariffMultiplier: state.tariffMultiplier ?? 1.0,
+    bailoutUsed: state.bailoutUsed ?? false,
+    emergencyLevyUsed: state.emergencyLevyUsed ?? false,
+    auditRisk: state.auditRisk ?? 0,
+    corruptionScore: state.corruptionScore ?? 0,
+  };
 }
 
 export function saveCurrentRun(state: GameState): void {
@@ -84,6 +100,14 @@ export function loadStats(): AggregateStats {
 
 export function saveStats(stats: AggregateStats): void {
   safeSave(KEYS.STATS, stats);
+}
+
+export function hasTutorialBeenSeen(): boolean {
+  return safeLoad<boolean>(KEYS.TUTORIAL_SEEN) === true;
+}
+
+export function markTutorialSeen(): void {
+  safeSave(KEYS.TUTORIAL_SEEN, true);
 }
 
 export function clearAllData(): void {

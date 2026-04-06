@@ -31,6 +31,7 @@ interface GameStore {
   // Budget recovery
   increaseTariff: () => void;
   requestBailout: () => void;
+  requestEmergencyLevy: () => void;
 
   // Day lifecycle
   endDay: () => void;
@@ -193,6 +194,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.BAILOUT_HEAT_COST),
       rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.BAILOUT_RAGE_COST),
       bailoutUsed: true,
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  requestEmergencyLevy: () => {
+    const { game } = get();
+    if (!game || game.emergencyLevyUsed) return;
+
+    // Reduce economic value of industrial regions (tier 2)
+    const updatedRegions = game.regions.map((r) => {
+      if (r.tier === 2) {
+        return { ...r, economicValue: r.economicValue * (1 - BALANCING.EMERGENCY_LEVY_ECONOMIC_PENALTY) };
+      }
+      return r;
+    });
+
+    const updated: GameState = {
+      ...game,
+      budget: game.budget + BALANCING.EMERGENCY_LEVY_AMOUNT,
+      heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.EMERGENCY_LEVY_HEAT_COST),
+      rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.EMERGENCY_LEVY_RAGE_COST),
+      regions: updatedRegions,
+      emergencyLevyUsed: true,
     };
     saveCurrentRun(updated);
     set({ game: updated });

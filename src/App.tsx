@@ -14,6 +14,7 @@ import { HowToScreen } from './screens/HowToScreen';
 import { DealModal } from './components/game/DealModal';
 import { PauseMenu } from './components/screens/PauseMenu';
 import { BALANCING } from './data/balancing';
+import { hasTutorialBeenSeen, markTutorialSeen } from './utils/storage';
 import type { Opportunity } from './data/types';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
   const continueTomorrow = useGameStore((s) => s.continueTomorrow);
   const increaseTariff = useGameStore((s) => s.increaseTariff);
   const requestBailout = useGameStore((s) => s.requestBailout);
+  const requestEmergencyLevy = useGameStore((s) => s.requestEmergencyLevy);
   const flee = useGameStore((s) => s.flee);
   const abandonRun = useGameStore((s) => s.abandonRun);
 
@@ -46,7 +48,11 @@ function App() {
   useEffect(() => {
     useHistoryStore.getState().loadFromStorage();
     useSettingsStore.getState().loadFromStorage();
-  }, []);
+    // Auto-show tutorial on first ever load
+    if (!hasTutorialBeenSeen()) {
+      setScreen('how_to');
+    }
+  }, [setScreen]);
 
   return (
     <div style={{ maxWidth: 430, margin: '0 auto', position: 'relative', minHeight: '100dvh' }}>
@@ -71,6 +77,7 @@ function App() {
             onEventChoice={makeEventChoice}
             onIncreaseTariff={increaseTariff}
             onRequestBailout={requestBailout}
+            onEmergencyLevy={requestEmergencyLevy}
             onMenu={() => setShowMenu(true)}
           />
           {selectedDeal && (
@@ -136,7 +143,7 @@ function App() {
       )}
 
       {screen === 'how_to' && (
-        <HowToScreen onClose={() => setScreen('title')} />
+        <HowToScreen onClose={() => { markTutorialSeen(); setScreen('title'); }} />
       )}
 
       {screen === 'run_history' && (

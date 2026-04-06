@@ -78,9 +78,12 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     bankruptcyDays: 0,
     consecutiveLowSupplyDays: 0,
     demandMetDays: 0,
+    consecutiveGoodDays: 0,
+    totalDefection: 0,
     tariffIncreases: 0,
     tariffMultiplier: 1.0,
     bailoutUsed: false,
+    emergencyLevyUsed: false,
     auditRisk: 0,
     corruptionScore: 0,
     playerActions: createEmptyActions(),
@@ -294,19 +297,48 @@ export function resolveDay(state: GameState): GameState {
   s.rage = Math.max(0, Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, rageResult.newRage + dayRageFromActions + eventEffects.rageDelta));
   dayEvents.push(...rageResult.rageEvents);
 
-  // 15b. Apply public defection at extreme rage (demand permanently shrinks)
-  s.regions = RageEngine.applyPublicDefection(s.regions, s.rage);
+  // 15b. Apply public defection at extreme rage (capped at max)
+  const defectionResult = RageEngine.applyPublicDefection(s.regions, s.rage, s.totalDefection);
+  s.regions = defectionResult.regions;
+  if (defectionResult.newTotalDefection > s.totalDefection) {
+    dayEvents.push(`Public going off-grid — ${Math.round(defectionResult.newTotalDefection * 100)}% demand permanently lost`);
+  }
+  s.totalDefection = defectionResult.newTotalDefection;
 
-  // 15c. Track demand satisfaction
-  if (gridResult.supplyRatio >= 1.0 && s.currentStage === 0) {
+  // 15c. Track demand satisfaction + consecutive good days
+  const demandFullyMet = gridResult.supplyRatio >= 1.0 && s.currentStage === 0;
+  const demandNearMet = gridResult.supplyRatio >= BALANCING.RAGE_ADEQUATE_SUPPLY_THRESHOLD
+    && s.currentStage <= BALANCING.DEMAND_NEAR_MET_STAGE_MAX;
+
+  if (demandFullyMet) {
     s.demandMetDays = s.demandMetDays + 1;
+    s.consecutiveGoodDays = s.consecutiveGoodDays + 1;
+  } else {
+    s.consecutiveGoodDays = 0;
+  }
+
+  // 15d. Calculate demand satisfaction budget bonus
+  let satisfactionBonus = 0;
+  if (demandFullyMet) {
+    satisfactionBonus = BALANCING.DEMAND_MET_BUDGET_BONUS;
+    dayEvents.push('Full power delivery — consumer confidence boosting revenue');
+  } else if (demandNearMet) {
+    satisfactionBonus = BALANCING.DEMAND_NEAR_MET_BUDGET_BONUS;
+  }
+
+  // Apply streak multiplier
+  if (satisfactionBonus > 0 && s.consecutiveGoodDays >= BALANCING.GOOD_DAYS_STREAK_HIGH_THRESHOLD) {
+    satisfactionBonus = Math.round(satisfactionBonus * BALANCING.GOOD_DAYS_STREAK_HIGH_MULTIPLIER);
+    dayEvents.push(`${s.consecutiveGoodDays}-day stability streak — bonus doubled!`);
+  } else if (satisfactionBonus > 0 && s.consecutiveGoodDays >= BALANCING.GOOD_DAYS_STREAK_MID_THRESHOLD) {
+    satisfactionBonus = Math.round(satisfactionBonus * BALANCING.GOOD_DAYS_STREAK_MID_MULTIPLIER);
   }
 
   // 16. Calculate economy
   const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage, s.tariffMultiplier);
   const fuelCosts = EconomyEngine.calculateCosts(s.plants, 0);
   const heatPenalty = EconomyEngine.calculateHeatPenalty(s.budget, s.heat);
-  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta + heatPenalty;
+  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta + heatPenalty - satisfactionBonus;
   if (heatPenalty > 0) {
     dayEvents.push(`Legal fees from investigations: -R${heatPenalty}M`);
   }

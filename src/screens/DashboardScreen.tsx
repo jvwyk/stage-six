@@ -23,12 +23,13 @@ interface DashboardScreenProps {
   onEventChoice: (eventId: string, choiceIndex: number) => void;
   onIncreaseTariff: () => void;
   onRequestBailout: () => void;
+  onEmergencyLevy: () => void;
   onMenu: () => void;
 }
 
 export function DashboardScreen({
   game, onDealClick, onEndDay, onPlants, onStageChange, onActivateDiesel, onEventChoice,
-  onIncreaseTariff, onRequestBailout, onMenu,
+  onIncreaseTariff, onRequestBailout, onEmergencyLevy, onMenu,
 }: DashboardScreenProps) {
   const totalSupply = game.plants.reduce((sum, p) =>
     (p.status === 'online' || p.status === 'derated') ? sum + p.currentOutput : sum, 0);
@@ -298,6 +299,22 @@ export function DashboardScreen({
                 </div>
                 <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, marginTop: 2 }}>
                   +R800M, +12 heat
+                </div>
+              </button>
+            )}
+            {/* Emergency Levy */}
+            {!game.emergencyLevyUsed && (
+              <button onClick={onEmergencyLevy} style={{
+                padding: '12px 8px', background: tokens.color.raised,
+                border: `1px solid ${tokens.color.red}20`, borderRadius: 8,
+                cursor: 'pointer', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{'\u{1F4B8}'}</div>
+                <div style={{ fontFamily: tokens.font.body, fontSize: 11, fontWeight: 600, color: tokens.color.red }}>
+                  Emergency Levy
+                </div>
+                <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, marginTop: 2 }}>
+                  +R800M, -10% industry
                 </div>
               </button>
             )}
