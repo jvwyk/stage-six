@@ -1,7 +1,7 @@
 // ── Plant Types ──
 
 export type PlantType = 'coal' | 'nuclear' | 'diesel' | 'renewable' | 'import';
-export type PlantStatus = 'online' | 'derated' | 'maintenance' | 'forced_outage' | 'standby';
+export type PlantStatus = 'online' | 'derated' | 'maintenance' | 'forced_outage' | 'standby' | 'starting';
 
 export interface PlantDefinition {
   id: string;
@@ -116,7 +116,6 @@ export interface EventEffect {
 export interface EventChoice {
   label: string;
   description: string;
-  cost?: number;
   effects: EventEffect[];
 }
 
@@ -274,6 +273,10 @@ export interface GameState {
   tariffMultiplier: number;
   bailoutUsed: boolean;
   emergencyLevyUsed: boolean;
+
+  // Fuel & capacity
+  dieselFuelDays: number;
+  emergencyImportMW: number;
 
   // Hidden corruption mechanics
   auditRisk: number;

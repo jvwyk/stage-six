@@ -9,7 +9,7 @@ export function rollFailures(plants: PlantState[], random: SeededRandom): PlantS
   let anyFailed = false;
 
   const results = plants.map((plant) => {
-    if (plant.status === 'maintenance' || plant.status === 'forced_outage' || plant.status === 'standby') {
+    if (plant.status === 'maintenance' || plant.status === 'forced_outage' || plant.status === 'standby' || plant.status === 'starting') {
       return plant;
     }
 
@@ -77,6 +77,20 @@ export function rollFailures(plants: PlantState[], random: SeededRandom): PlantS
 export function tickPlantTimers(plants: PlantState[]): PlantState[] {
   return plants.map((plant) => {
     if (plant.status === 'forced_outage' && plant.daysUntilRepair > 0) {
+      const remaining = plant.daysUntilRepair - 1;
+      if (remaining <= 0) {
+        return {
+          ...plant,
+          status: 'online' as const,
+          currentOutput: plant.maxCapacity,
+          daysUntilRepair: 0,
+        };
+      }
+      return { ...plant, daysUntilRepair: remaining };
+    }
+
+    // Cold start: diesel plants starting up come online after countdown
+    if (plant.status === 'starting' && plant.daysUntilRepair > 0) {
       const remaining = plant.daysUntilRepair - 1;
       if (remaining <= 0) {
         return {
@@ -166,8 +180,9 @@ export function activateDiesel(plant: PlantState): PlantState {
   if (plant.type !== 'diesel' || plant.status !== 'standby') return plant;
   return {
     ...plant,
-    status: 'online',
-    currentOutput: plant.maxCapacity,
+    status: 'starting',
+    currentOutput: 0,
+    daysUntilRepair: BALANCING.DIESEL_COLD_START_DAYS,
   };
 }
 

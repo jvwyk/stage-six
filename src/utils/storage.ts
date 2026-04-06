@@ -60,6 +60,8 @@ export function loadCurrentRun(): GameState | null {
     tariffMultiplier: state.tariffMultiplier ?? 1.0,
     bailoutUsed: state.bailoutUsed ?? false,
     emergencyLevyUsed: state.emergencyLevyUsed ?? false,
+    dieselFuelDays: state.dieselFuelDays ?? 0,
+    emergencyImportMW: state.emergencyImportMW ?? 0,
     auditRisk: state.auditRisk ?? 0,
     corruptionScore: state.corruptionScore ?? 0,
   };

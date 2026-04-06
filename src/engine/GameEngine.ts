@@ -84,6 +84,8 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     tariffMultiplier: 1.0,
     bailoutUsed: false,
     emergencyLevyUsed: false,
+    dieselFuelDays: 0,
+    emergencyImportMW: 0,
     auditRisk: 0,
     corruptionScore: 0,
     playerActions: createEmptyActions(),
@@ -258,9 +260,30 @@ export function resolveDay(state: GameState): GameState {
     eventEffects.demandModifiers,
   );
 
-  // 9. Get available supply (accounting for event supply modifiers)
+  // 9. Get available supply (accounting for event supply modifiers + emergency imports)
   const baseSupply = PlantEngine.getAvailableCapacity(s.plants);
-  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier);
+  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW);
+
+  // 9b. Enforce minimum stage
+  const totalDemandRaw = s.regions.reduce((sum, r) => sum + r.currentDemand, 0);
+  const { minimumStage } = SimulationEngine.calculateMinimumStage(totalSupply, totalDemandRaw);
+  if (s.currentStage < minimumStage) {
+    dayEvents.push(`Grid auto-set to Stage ${minimumStage} — insufficient supply for Stage ${s.currentStage}`);
+    s.currentStage = minimumStage;
+  }
+
+  // 9c. Tick diesel fuel (fuel runs out = diesel plants go standby)
+  if (s.dieselFuelDays > 0) {
+    s.dieselFuelDays = s.dieselFuelDays - 1;
+    if (s.dieselFuelDays <= 0) {
+      s.plants = s.plants.map((p) =>
+        p.type === 'diesel' && p.status === 'online'
+          ? { ...p, status: 'standby' as const, currentOutput: 0 }
+          : p,
+      );
+      dayEvents.push('Diesel fuel exhausted — diesel plants returning to standby');
+    }
+  }
 
   // 10. Allocate supply across regions
   s.regions = SimulationEngine.allocateSupply(totalSupply, s.regions, s.currentStage);
@@ -485,16 +508,24 @@ export function advanceToNextDay(state: GameState): GameState {
     random,
   );
 
+  // Auto-set stage to at least recommended for the new day
+  const supply = PlantEngine.getAvailableCapacity(state.plants);
+  const demand = state.regions.reduce((sum, r) => sum + r.baseDemand, 0);
+  const { recommendedStage } = SimulationEngine.calculateMinimumStage(supply, demand);
+  const newStage = Math.max(state.currentStage, recommendedStage);
+
   return {
     ...state,
     day: nextDay,
     phase: 'opportunities',
+    currentStage: newStage,
     todaysOpportunities: opportunities,
     recentOpportunityIds: OpportunityEngine.updateRecentOpportunities(
       state.recentOpportunityIds,
       opportunities.map((o) => o.id),
     ),
     dayReport: null,
+    emergencyImportMW: 0, // Reset daily import
     playerActions: createEmptyActions(),
   };
 }

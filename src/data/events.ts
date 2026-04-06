@@ -18,7 +18,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Rush Repair',
         description: 'Fix it in 1 day — but it costs R220M.',
-        cost: 220,
         effects: [{ type: 'budget', value: -220 }],
       },
       {
@@ -210,7 +209,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Increase Security',
         description: 'Deploy security forces. R150M cost.',
-        cost: 150,
         effects: [{ type: 'budget', value: -150 }],
       },
       {
@@ -393,7 +391,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Bribe the Auditor',
         description: 'R100M to make it go away. Very risky.',
-        cost: 100,
         effects: [
           { type: 'budget', value: -100 },
           { type: 'heat', value: 10 },
@@ -446,7 +443,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Accept Contract',
         description: 'Pay inflated price. Small reliability boost.',
-        cost: 200,
         effects: [{ type: 'budget', value: -200 }],
       },
       {
@@ -473,7 +469,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Approve',
         description: 'R50M/day for 3 days. Maybe helpful.',
-        cost: 150,
         effects: [{ type: 'budget', value: -150 }],
       },
       {
@@ -500,7 +495,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Accept Report',
         description: 'Sign off. Save time.',
-        cost: 80,
         effects: [{ type: 'budget', value: -80 }],
       },
       {
@@ -553,7 +547,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Activate Emergency Diesel',
         description: 'Massive cost but eases pressure.',
-        cost: 300,
         effects: [
           { type: 'budget', value: -300 },
           { type: 'supply', value: 1350 },
@@ -583,7 +576,6 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Approve Redesign',
         description: 'Expensive but necessary.',
-        cost: 400,
         effects: [{ type: 'budget', value: -400 }],
       },
       {
@@ -639,13 +631,11 @@ export const EVENTS: EventDefinition[] = [
       {
         label: 'Replace Parts',
         description: 'Full replacement. Expensive but proper.',
-        cost: 250,
         effects: [{ type: 'budget', value: -250 }],
       },
       {
         label: 'Patch Fix',
         description: 'Cheap fix. Might not hold.',
-        cost: 50,
         effects: [{ type: 'budget', value: -50 }],
       },
     ],

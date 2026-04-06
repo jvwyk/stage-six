@@ -32,6 +32,8 @@ function App() {
   const makeEventChoice = useGameStore((s) => s.makeEventChoice);
   const endDay = useGameStore((s) => s.endDay);
   const continueTomorrow = useGameStore((s) => s.continueTomorrow);
+  const buyDieselFuel = useGameStore((s) => s.buyDieselFuel);
+  const buyEmergencyImport = useGameStore((s) => s.buyEmergencyImport);
   const increaseTariff = useGameStore((s) => s.increaseTariff);
   const requestBailout = useGameStore((s) => s.requestBailout);
   const requestEmergencyLevy = useGameStore((s) => s.requestEmergencyLevy);
@@ -71,10 +73,12 @@ function App() {
             game={game}
             onDealClick={(op) => setSelectedDeal(op)}
             onEndDay={endDay}
-            onPlants={() => setScreen('plant_detail')}
             onStageChange={setStage}
             onActivateDiesel={activateDiesel}
+            onScheduleMaintenance={scheduleMaintenance}
             onEventChoice={makeEventChoice}
+            onBuyDieselFuel={buyDieselFuel}
+            onBuyEmergencyImport={buyEmergencyImport}
             onIncreaseTariff={increaseTariff}
             onRequestBailout={requestBailout}
             onEmergencyLevy={requestEmergencyLevy}

@@ -28,6 +28,10 @@ interface GameStore {
   scheduleMaintenance: (plantId: string) => void;
   makeEventChoice: (eventId: string, choiceIndex: number) => void;
 
+  // Fuel & capacity
+  buyDieselFuel: () => void;
+  buyEmergencyImport: () => void;
+
   // Budget recovery
   increaseTariff: () => void;
   requestBailout: () => void;
@@ -127,9 +131,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateDiesel: (plantId) => {
     const { game } = get();
     if (!game) return;
+    const plantIdx = game.plants.findIndex((p) => p.id === plantId);
+    if (plantIdx < 0) return;
+    const plant = game.plants[plantIdx];
+    if (plant.type !== 'diesel' || plant.status !== 'standby') return;
+
+    // Cold start: plant goes to 'starting', costs budget immediately
+    const updatedPlants = [...game.plants];
+    updatedPlants[plantIdx] = {
+      ...plant,
+      status: 'starting' as const,
+      currentOutput: 0,
+      daysUntilRepair: BALANCING.DIESEL_COLD_START_DAYS,
+    };
 
     const updated: GameState = {
       ...game,
+      plants: updatedPlants,
+      budget: game.budget - BALANCING.DIESEL_ACTIVATION_COST,
       playerActions: {
         ...game.playerActions,
         dieselActivated: [...game.playerActions.dieselActivated, plantId],
@@ -142,9 +161,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
   scheduleMaintenance: (plantId) => {
     const { game } = get();
     if (!game) return;
+    const plantIdx = game.plants.findIndex((p) => p.id === plantId);
+    if (plantIdx < 0) return;
+    const plant = game.plants[plantIdx];
+    if (plant.status !== 'online' && plant.status !== 'derated') return;
+
+    // Immediately take offline and deduct cost
+    const maintenanceCost = Math.round(
+      BALANCING.MAINTENANCE_COST_MIN +
+      Math.random() * (BALANCING.MAINTENANCE_COST_MAX - BALANCING.MAINTENANCE_COST_MIN),
+    );
+    const duration = Math.round(
+      BALANCING.MAINTENANCE_DURATION_MIN +
+      Math.random() * (BALANCING.MAINTENANCE_DURATION_MAX - BALANCING.MAINTENANCE_DURATION_MIN),
+    );
+
+    const updatedPlants = [...game.plants];
+    updatedPlants[plantIdx] = {
+      ...plant,
+      status: 'maintenance' as const,
+      currentOutput: 0,
+      maintenanceDaysLeft: duration,
+      failureDebt: Math.max(0, plant.failureDebt - BALANCING.FAILURE_DEBT_CLEAN_MAINTENANCE_DECREASE),
+    };
 
     const updated: GameState = {
       ...game,
+      plants: updatedPlants,
+      budget: game.budget - maintenanceCost,
       playerActions: {
         ...game.playerActions,
         maintenanceScheduled: [...game.playerActions.maintenanceScheduled, plantId],
@@ -165,6 +209,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...game.playerActions,
         eventChoices: [...game.playerActions.eventChoices, { eventId, choiceIndex }],
       },
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  buyDieselFuel: () => {
+    const { game } = get();
+    if (!game || game.budget < BALANCING.DIESEL_FUEL_COST) return;
+    // Must have at least one diesel plant that's online or starting
+    const hasDiesel = game.plants.some((p) => p.type === 'diesel' && (p.status === 'online' || p.status === 'starting'));
+    if (!hasDiesel) return;
+
+    const updated: GameState = {
+      ...game,
+      budget: game.budget - BALANCING.DIESEL_FUEL_COST,
+      dieselFuelDays: game.dieselFuelDays + BALANCING.DIESEL_FUEL_DURATION,
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  buyEmergencyImport: () => {
+    const { game } = get();
+    if (!game || game.budget < BALANCING.EMERGENCY_IMPORT_COST) return;
+    if (game.emergencyImportMW > 0) return; // Max 1 per day
+
+    const updated: GameState = {
+      ...game,
+      budget: game.budget - BALANCING.EMERGENCY_IMPORT_COST,
+      emergencyImportMW: BALANCING.EMERGENCY_IMPORT_MW,
     };
     saveCurrentRun(updated);
     set({ game: updated });

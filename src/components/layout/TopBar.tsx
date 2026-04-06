@@ -12,9 +12,10 @@ interface TopBarProps {
   lastSkim: number;
   heat: number;
   rage: number;
+  budgetDelta?: number;
 }
 
-export function TopBar({ day, budget, bag, lastSkim, heat, rage }: TopBarProps) {
+export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta }: TopBarProps) {
   const heatColor = heat > 70 ? tokens.color.red : tokens.color.amber;
   const heatLabel = getHeatStatusLabel(heat);
 
@@ -44,7 +45,11 @@ export function TopBar({ day, budget, bag, lastSkim, heat, rage }: TopBarProps) 
           fontSize: 11,
           color: tokens.color.green,
         }}>
-          {formatMoney(budget)} BUDGET
+          {formatMoney(budget)}{budgetDelta ? (
+            <span style={{ color: budgetDelta >= 0 ? tokens.color.green : tokens.color.red, marginLeft: 4 }}>
+              ({budgetDelta >= 0 ? '+' : ''}{formatMoney(budgetDelta)})
+            </span>
+          ) : null}
         </div>
       </div>
 
