@@ -32,8 +32,10 @@ interface GameStore {
   buyDieselFuel: () => void;
   buyEmergencyImport: () => void;
 
-  // Budget recovery
+  // Budget recovery & transactions
   increaseTariff: () => void;
+  reduceTariff: () => void;
+  sellDieselFuel: () => void;
   requestBailout: () => void;
   requestEmergencyLevy: () => void;
 
@@ -149,6 +151,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...game,
       plants: updatedPlants,
       budget: game.budget - BALANCING.DIESEL_ACTIVATION_COST,
+      transactionLog: [...game.transactionLog, { label: `Start ${plant.name}`, amount: -BALANCING.DIESEL_ACTIVATION_COST }],
       playerActions: {
         ...game.playerActions,
         dieselActivated: [...game.playerActions.dieselActivated, plantId],
@@ -189,6 +192,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...game,
       plants: updatedPlants,
       budget: game.budget - maintenanceCost,
+      transactionLog: [...game.transactionLog, { label: `Maintain ${plant.name}`, amount: -maintenanceCost }],
       playerActions: {
         ...game.playerActions,
         maintenanceScheduled: [...game.playerActions.maintenanceScheduled, plantId],
@@ -225,6 +229,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...game,
       budget: game.budget - BALANCING.DIESEL_FUEL_COST,
       dieselFuelDays: game.dieselFuelDays + BALANCING.DIESEL_FUEL_DURATION,
+      transactionLog: [...game.transactionLog, { label: 'Buy diesel fuel', amount: -BALANCING.DIESEL_FUEL_COST }],
     };
     saveCurrentRun(updated);
     set({ game: updated });
@@ -239,6 +244,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...game,
       budget: game.budget - BALANCING.EMERGENCY_IMPORT_COST,
       emergencyImportMW: BALANCING.EMERGENCY_IMPORT_MW,
+      transactionLog: [...game.transactionLog, { label: 'Emergency import', amount: -BALANCING.EMERGENCY_IMPORT_COST }],
     };
     saveCurrentRun(updated);
     set({ game: updated });
@@ -253,6 +259,53 @@ export const useGameStore = create<GameStore>((set, get) => ({
       tariffIncreases: game.tariffIncreases + 1,
       tariffMultiplier: game.tariffMultiplier + BALANCING.TARIFF_INCREASE_AMOUNT,
       rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.TARIFF_INCREASE_RAGE_COST),
+      transactionLog: [...game.transactionLog, { label: 'Tariff increase (+15% rev)', amount: 0 }],
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  reduceTariff: () => {
+    const { game } = get();
+    if (!game || game.tariffIncreases <= 0) return;
+
+    const updated: GameState = {
+      ...game,
+      tariffIncreases: game.tariffIncreases - 1,
+      tariffMultiplier: Math.max(1.0, game.tariffMultiplier - BALANCING.TARIFF_INCREASE_AMOUNT),
+      rage: Math.max(0, game.rage - BALANCING.TARIFF_DECREASE_RAGE_BONUS),
+      transactionLog: [...game.transactionLog, { label: 'Tariff reduction (-15% rev)', amount: 0 }],
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  sellDieselFuel: () => {
+    const { game } = get();
+    if (!game || game.dieselFuelDays <= 0) return;
+
+    const days = game.dieselFuelDays;
+    const budgetGain = BALANCING.DIESEL_FUEL_SELL_PRICE_PER_DAY * days;
+    const skimGain = BALANCING.DIESEL_FUEL_SELL_SKIM_PER_DAY * days;
+
+    const updated: GameState = {
+      ...game,
+      budget: game.budget + budgetGain,
+      bag: game.bag + skimGain,
+      heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.DIESEL_FUEL_SELL_HEAT),
+      dieselFuelDays: 0,
+      corruptionLog: [...game.corruptionLog, {
+        day: game.day,
+        action: 'Diesel fuel sale (black market)',
+        skimAmount: skimGain,
+        heatAdded: BALANCING.DIESEL_FUEL_SELL_HEAT,
+        category: 'selloff' as const,
+      }],
+      transactionLog: [
+        ...game.transactionLog,
+        { label: `Sold ${days}d diesel fuel`, amount: budgetGain },
+        { label: 'Your cut (fuel skim)', amount: skimGain },
+      ],
     };
     saveCurrentRun(updated);
     set({ game: updated });
@@ -300,6 +353,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   endDay: () => {
     const { game } = get();
     if (!game) return;
+
+    // Guardrail: block if unresolved event choices exist
+    const unresolvedEvents = game.activeEvents.filter(
+      (ae) => ae.event.choices && ae.event.choices.length > 0 && ae.choiceMade === undefined,
+    );
+    if (unresolvedEvents.length > 0) return;
 
     const resolved = GameEngine.resolveDay(game);
     saveCurrentRun(resolved);

@@ -74,6 +74,7 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     recentOpportunityIds: opportunities.map((o) => o.id),
     corruptionLog: [],
     decisionsLog: [],
+    transactionLog: [],
     dayReport: null,
     bankruptcyDays: 0,
     consecutiveLowSupplyDays: 0,
@@ -525,7 +526,8 @@ export function advanceToNextDay(state: GameState): GameState {
       opportunities.map((o) => o.id),
     ),
     dayReport: null,
-    emergencyImportMW: 0, // Reset daily import
+    emergencyImportMW: 0,
+    transactionLog: [],
     playerActions: createEmptyActions(),
   };
 }

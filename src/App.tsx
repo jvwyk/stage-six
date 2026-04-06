@@ -12,6 +12,7 @@ import { PlantDetailScreen } from './screens/PlantDetailScreen';
 import { RunHistoryScreen } from './screens/RunHistoryScreen';
 import { HowToScreen } from './screens/HowToScreen';
 import { DealModal } from './components/game/DealModal';
+import { EventModal } from './components/game/EventModal';
 import { PauseMenu } from './components/screens/PauseMenu';
 import { BALANCING } from './data/balancing';
 import { hasTutorialBeenSeen, markTutorialSeen } from './utils/storage';
@@ -35,6 +36,8 @@ function App() {
   const buyDieselFuel = useGameStore((s) => s.buyDieselFuel);
   const buyEmergencyImport = useGameStore((s) => s.buyEmergencyImport);
   const increaseTariff = useGameStore((s) => s.increaseTariff);
+  const reduceTariff = useGameStore((s) => s.reduceTariff);
+  const sellDieselFuel = useGameStore((s) => s.sellDieselFuel);
   const requestBailout = useGameStore((s) => s.requestBailout);
   const requestEmergencyLevy = useGameStore((s) => s.requestEmergencyLevy);
   const flee = useGameStore((s) => s.flee);
@@ -67,23 +70,30 @@ function App() {
         />
       )}
 
-      {screen === 'dashboard' && game && (
-        <>
-          <DashboardScreen
-            game={game}
-            onDealClick={(op) => setSelectedDeal(op)}
-            onEndDay={endDay}
-            onStageChange={setStage}
-            onActivateDiesel={activateDiesel}
-            onScheduleMaintenance={scheduleMaintenance}
-            onEventChoice={makeEventChoice}
-            onBuyDieselFuel={buyDieselFuel}
-            onBuyEmergencyImport={buyEmergencyImport}
-            onIncreaseTariff={increaseTariff}
-            onRequestBailout={requestBailout}
-            onEmergencyLevy={requestEmergencyLevy}
-            onMenu={() => setShowMenu(true)}
-          />
+      {screen === 'dashboard' && game && (() => {
+        const unresolvedEvents = game.activeEvents.filter(
+          (ae) => ae.event.choices && ae.event.choices.length > 0 && ae.choiceMade === undefined,
+        );
+        const firstUnresolved = unresolvedEvents[0] || null;
+        return (
+          <>
+            <DashboardScreen
+              game={game}
+              onDealClick={(op) => setSelectedDeal(op)}
+              onEndDay={endDay}
+              onStageChange={setStage}
+              onActivateDiesel={activateDiesel}
+              onScheduleMaintenance={scheduleMaintenance}
+              onBuyDieselFuel={buyDieselFuel}
+              onBuyEmergencyImport={buyEmergencyImport}
+              onIncreaseTariff={increaseTariff}
+              onReduceTariff={reduceTariff}
+              onSellDieselFuel={sellDieselFuel}
+              onRequestBailout={requestBailout}
+              onEmergencyLevy={requestEmergencyLevy}
+              onMenu={() => setShowMenu(true)}
+              hasUnresolvedEvents={unresolvedEvents.length > 0}
+            />
           {selectedDeal && (
             <DealModal
               opportunity={selectedDeal}
@@ -92,6 +102,12 @@ function App() {
               onClean={() => { cleanDeal(selectedDeal.id); setSelectedDeal(null); }}
               onSkip={() => { skipDeal(selectedDeal.id); setSelectedDeal(null); }}
               onClose={() => setSelectedDeal(null)}
+            />
+          )}
+          {firstUnresolved && !selectedDeal && (
+            <EventModal
+              event={firstUnresolved}
+              onChoice={makeEventChoice}
             />
           )}
           {showMenu && (
@@ -103,8 +119,9 @@ function App() {
               onTitle={() => { setShowMenu(false); setScreen('title'); }}
             />
           )}
-        </>
-      )}
+          </>
+        );
+      })()}
 
       {screen === 'day_summary' && game?.dayReport && (
         <DaySummaryScreen

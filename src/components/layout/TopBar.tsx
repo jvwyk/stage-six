@@ -13,9 +13,10 @@ interface TopBarProps {
   heat: number;
   rage: number;
   budgetDelta?: number;
+  eventCount?: number;
 }
 
-export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta }: TopBarProps) {
+export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta, eventCount }: TopBarProps) {
   const heatColor = heat > 70 ? tokens.color.red : tokens.color.amber;
   const heatLabel = getHeatStatusLabel(heat);
 
@@ -39,6 +40,9 @@ export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta }: 
             letterSpacing: '0.04em',
           }}>STAGE 6</span>
           <StatusPill color={tokens.color.muted}>DAY {day}/{BALANCING.TOTAL_DAYS}</StatusPill>
+          {eventCount !== undefined && eventCount > 0 && (
+            <StatusPill color={tokens.color.amber} pulse>{eventCount} event{eventCount !== 1 ? 's' : ''}</StatusPill>
+          )}
         </div>
         <div style={{
           fontFamily: tokens.font.mono,

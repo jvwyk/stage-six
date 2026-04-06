@@ -62,6 +62,7 @@ export function loadCurrentRun(): GameState | null {
     emergencyLevyUsed: state.emergencyLevyUsed ?? false,
     dieselFuelDays: state.dieselFuelDays ?? 0,
     emergencyImportMW: state.emergencyImportMW ?? 0,
+    transactionLog: state.transactionLog ?? [],
     auditRisk: state.auditRisk ?? 0,
     corruptionScore: state.corruptionScore ?? 0,
   };

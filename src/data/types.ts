@@ -168,6 +168,11 @@ export interface DecisionEntry {
   outcome: string;
 }
 
+export interface TransactionEntry {
+  label: string;
+  amount: number;
+}
+
 // ── Day Report ──
 
 export interface DayReport {
@@ -258,6 +263,7 @@ export interface GameState {
 
   corruptionLog: CorruptionEntry[];
   decisionsLog: DecisionEntry[];
+  transactionLog: TransactionEntry[];
 
   dayReport: DayReport | null;
 
