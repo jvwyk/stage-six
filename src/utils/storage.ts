@@ -62,6 +62,8 @@ export function loadCurrentRun(): GameState | null {
     emergencyLevyUsed: state.emergencyLevyUsed ?? false,
     dieselFuelDays: state.dieselFuelDays ?? 0,
     emergencyImportMW: state.emergencyImportMW ?? 0,
+    diversionMW: state.diversionMW ?? 0,
+    influence: state.influence ?? 20,
     transactionLog: state.transactionLog ?? [],
     // Ensure plants have operatingMode
     plants: (state.plants || []).map((p: any) => ({ ...p, operatingMode: p.operatingMode ?? 'normal' })),

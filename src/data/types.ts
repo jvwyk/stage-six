@@ -118,6 +118,8 @@ export interface TenderChoice {
 
 export interface Opportunity extends OpportunityDefinition {
   skimAmount: number;
+  delayCount: number;
+  dayAppeared: number;
 }
 
 // ── Event Types ──
@@ -176,6 +178,7 @@ export interface CorruptionEntry {
   skimAmount: number;
   heatAdded: number;
   category: OpportunityCategory;
+  inflationLevel: number;
 }
 
 export interface DecisionEntry {
@@ -301,6 +304,12 @@ export interface GameState {
   // Fuel & capacity
   dieselFuelDays: number;
   emergencyImportMW: number;
+
+  // Power diversion
+  diversionMW: number;
+
+  // Influence
+  influence: number;
 
   // Hidden corruption mechanics
   auditRisk: number;

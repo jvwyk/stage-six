@@ -10,6 +10,8 @@ import * as HeatEngine from './HeatEngine';
 import * as EconomyEngine from './EconomyEngine';
 import * as OpportunityEngine from './OpportunityEngine';
 import * as EventEngine from './EventEngine';
+import * as DiversionEngine from './DiversionEngine';
+import * as InfluenceEngine from './InfluenceEngine';
 
 /**
  * Create a fresh game state.
@@ -88,6 +90,8 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     emergencyLevyUsed: false,
     dieselFuelDays: 0,
     emergencyImportMW: 0,
+    diversionMW: 0,
+    influence: BALANCING.INFLUENCE_STARTING,
     auditRisk: 0,
     corruptionScore: 0,
     playerActions: createEmptyActions(),
@@ -263,9 +267,22 @@ export function resolveDay(state: GameState): GameState {
     eventEffects.demandModifiers,
   );
 
-  // 9. Get available supply (accounting for event supply modifiers + emergency imports)
+  // 9. Get available supply (accounting for event supply modifiers + emergency imports - diversion)
   const baseSupply = PlantEngine.getAvailableCapacity(s.plants);
-  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW);
+  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW - s.diversionMW);
+
+  // 9a. Process power diversion income and detection
+  if (s.diversionMW > 0) {
+    const diversionIncome = DiversionEngine.calculateDiversionIncome(s.diversionMW);
+    daySkimmed += diversionIncome;
+    dayEvents.push(`Diverted ${s.diversionMW}MW to private clients — +R${diversionIncome}M to bag`);
+
+    if (DiversionEngine.checkDiversionDetection(s.diversionMW, random)) {
+      dayHeatAdded += BALANCING.DIVERSION_DETECTED_HEAT;
+      dayRageFromActions += BALANCING.DIVERSION_DETECTED_RAGE;
+      dayEvents.push('Power diversion DETECTED — Hawks investigating, public outraged');
+    }
+  }
 
   // 9b. Enforce minimum stage
   const totalDemandRaw = s.regions.reduce((sum, r) => sum + r.currentDemand, 0);
@@ -383,6 +400,15 @@ export function resolveDay(state: GameState): GameState {
     s.consecutiveLowSupplyDays = s.consecutiveLowSupplyDays + 1;
   } else {
     s.consecutiveLowSupplyDays = 0;
+  }
+
+  // ── PHASE 4b: Influence ──
+
+  // Calculate daily influence gain
+  const influenceGain = InfluenceEngine.calculateDailyInfluence(s);
+  s.influence = Math.max(0, Math.min(BALANCING.INFLUENCE_MAX, s.influence + influenceGain));
+  if (influenceGain > 0) {
+    dayEvents.push(`Influence +${influenceGain} (total: ${Math.round(s.influence)})`);
   }
 
   // ── PHASE 5: Events ──
@@ -529,6 +555,7 @@ export function advanceToNextDay(state: GameState): GameState {
     ),
     dayReport: null,
     emergencyImportMW: 0,
+    diversionMW: 0,
     transactionLog: [],
     playerActions: createEmptyActions(),
   };

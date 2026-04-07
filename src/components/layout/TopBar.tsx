@@ -13,10 +13,11 @@ interface TopBarProps {
   heat: number;
   rage: number;
   budgetDelta?: number;
+  influence?: number;
   eventCount?: number;
 }
 
-export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta, eventCount }: TopBarProps) {
+export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta, influence, eventCount }: TopBarProps) {
   const heatColor = heat > 70 ? tokens.color.red : tokens.color.amber;
   const heatLabel = getHeatStatusLabel(heat);
 
@@ -105,7 +106,7 @@ export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta, ev
       </div>
 
       {/* Heat + Rage bars */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: influence !== undefined ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10, marginTop: 10 }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
             <span style={{
@@ -166,6 +167,19 @@ export function TopBar({ day, budget, bag, lastSkim, heat, rage, budgetDelta, ev
             {rage > 85 ? 'CRITICAL' : rage > 70 ? 'FURIOUS' : rage > 50 ? 'ANGRY' : rage > 25 ? 'GRUMBLING' : 'CALM'}
           </div>
         </div>
+        {influence !== undefined && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.purple, letterSpacing: '0.1em', fontWeight: 700 }}>
+                {'\u{1F3DB}\uFE0F'} INFLUENCE
+              </span>
+              <span style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.purple, fontWeight: 700 }}>
+                {Math.round(influence)}
+              </span>
+            </div>
+            <MeterBar value={influence} color={tokens.color.purple} height={5} glow />
+          </div>
+        )}
       </div>
     </div>
   );

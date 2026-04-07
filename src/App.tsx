@@ -30,7 +30,11 @@ function App() {
   const setStage = useGameStore((s) => s.setStage);
   const activateDiesel = useGameStore((s) => s.activateDiesel);
   const scheduleMaintenance = useGameStore((s) => s.scheduleMaintenance);
+  const rushRepair = useGameStore((s) => s.rushRepair);
+  const rushMaintenance = useGameStore((s) => s.rushMaintenance);
   const setPlantMode = useGameStore((s) => s.setPlantMode);
+  const setDiversion = useGameStore((s) => s.setDiversion);
+  const spendInfluence = useGameStore((s) => s.spendInfluence);
   const makeEventChoice = useGameStore((s) => s.makeEventChoice);
   const endDay = useGameStore((s) => s.endDay);
   const continueTomorrow = useGameStore((s) => s.continueTomorrow);
@@ -91,6 +95,10 @@ function App() {
               onReduceTariff={reduceTariff}
               onSellDieselFuel={sellDieselFuel}
               onSetPlantMode={setPlantMode}
+              onRushRepair={rushRepair}
+              onRushMaintenance={rushMaintenance}
+              onSetDiversion={setDiversion}
+              onSpendInfluence={spendInfluence}
               onRequestBailout={requestBailout}
               onEmergencyLevy={requestEmergencyLevy}
               onMenu={() => setShowMenu(true)}

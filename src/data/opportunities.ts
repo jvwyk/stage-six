@@ -412,11 +412,26 @@ const RAW_OPPORTUNITIES: Omit<OpportunityDefinition, 'baseCost' | 'maxInflation'
 ];
 
 // Add tender system fields (baseCost derived from budgetCost, inflation from skim range)
-export const OPPORTUNITIES: OpportunityDefinition[] = RAW_OPPORTUNITIES.map((op) => ({
-  ...op,
-  baseCost: op.budgetCost || Math.round((op.skimRange[0] + op.skimRange[1]) / 2),
-  maxInflation: 2.0,
-  heatPerInflation: Math.round(op.heatCost / 4) || 2,
-  failureDebtPerInflation: op.category === 'tender' || op.category === 'markup' ? 5 : 0,
-  canDelay: op.tier <= 2,
-}));
+// Per-category inflation tuning
+function getCategoryInflation(category: string, tier: number): { maxInflation: number; heatPerInflation: number; failureDebtPerInflation: number } {
+  if (tier >= 4) return { maxInflation: 2.5, heatPerInflation: 8, failureDebtPerInflation: 8 };
+  switch (category) {
+    case 'markup': return { maxInflation: 2.0, heatPerInflation: 2, failureDebtPerInflation: 3 };
+    case 'tender': return { maxInflation: 2.0, heatPerInflation: 3, failureDebtPerInflation: 5 };
+    case 'consulting': return { maxInflation: 1.5, heatPerInflation: 2, failureDebtPerInflation: 0 };
+    case 'diversion': return { maxInflation: 1.75, heatPerInflation: 5, failureDebtPerInflation: 0 };
+    case 'selloff': return { maxInflation: 1.5, heatPerInflation: 6, failureDebtPerInflation: 0 };
+    case 'political': return { maxInflation: 1.5, heatPerInflation: 4, failureDebtPerInflation: 0 };
+    default: return { maxInflation: 2.0, heatPerInflation: 3, failureDebtPerInflation: 3 };
+  }
+}
+
+export const OPPORTUNITIES: OpportunityDefinition[] = RAW_OPPORTUNITIES.map((op) => {
+  const inflation = getCategoryInflation(op.category, op.tier);
+  return {
+    ...op,
+    baseCost: op.budgetCost || Math.round((op.skimRange[0] + op.skimRange[1]) / 2),
+    ...inflation,
+    canDelay: op.tier <= 2,
+  };
+});

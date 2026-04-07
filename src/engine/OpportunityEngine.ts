@@ -84,7 +84,7 @@ export function generateOpportunities(
  */
 function resolveOpportunity(def: typeof OPPORTUNITIES[number], random: SeededRandom): Opportunity {
   const skimAmount = random.range(def.skimRange[0], def.skimRange[1]);
-  return { ...def, skimAmount };
+  return { ...def, skimAmount, delayCount: 0, dayAppeared: 0 };
 }
 
 /**
@@ -120,6 +120,7 @@ export function applyTakeDeal(
     skimAmount: opportunity.skimAmount,
     heatAdded: heatGain,
     category: opportunity.category,
+    inflationLevel: 0,
   };
 
   return {

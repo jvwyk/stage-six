@@ -28,6 +28,10 @@ interface DashboardScreenProps {
   onReduceTariff: () => void;
   onSellDieselFuel: () => void;
   onSetPlantMode: (plantId: string, mode: import('../data/types').PlantOperatingMode) => void;
+  onRushRepair: (plantId: string) => void;
+  onRushMaintenance: (plantId: string) => void;
+  onSetDiversion: (mw: number) => void;
+  onSpendInfluence: (action: 'suppress_rage' | 'deflect_investigation' | 'cover_diversion') => void;
   onRequestBailout: () => void;
   onEmergencyLevy: () => void;
   onMenu: () => void;
@@ -46,7 +50,8 @@ const statusLabels: Record<string, string> = {
 export function DashboardScreen({
   game, onDealClick, onEndDay, onStageChange, onActivateDiesel, onScheduleMaintenance,
   onBuyDieselFuel, onBuyEmergencyImport, onIncreaseTariff, onReduceTariff, onSellDieselFuel,
-  onSetPlantMode, onRequestBailout, onEmergencyLevy, onMenu, hasUnresolvedEvents,
+  onSetPlantMode, onRushRepair, onRushMaintenance, onSetDiversion, onSpendInfluence,
+  onRequestBailout, onEmergencyLevy, onMenu, hasUnresolvedEvents,
 }: DashboardScreenProps) {
   const [activeTab, setActiveTab] = useState(1); // Default to GRID tab
   const [expandedPlant, setExpandedPlant] = useState<string | null>(null);
@@ -95,7 +100,7 @@ export function DashboardScreen({
     }}>
       <TopBar day={game.day} budget={game.budget} bag={game.bag}
         lastSkim={lastSkim} heat={game.heat} rage={game.rage} budgetDelta={budgetDelta}
-        eventCount={game.activeEvents.length} />
+        influence={game.influence} eventCount={game.activeEvents.length} />
 
       <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={onMenu} />
 
@@ -302,6 +307,28 @@ export function DashboardScreen({
                                 {'\u26FD'} Cold Start (R{BALANCING.DIESEL_ACTIVATION_COST}M)
                               </button>
                             )}
+                            {p.status === 'forced_outage' && p.daysUntilRepair > 0 && (
+                              <button onClick={(e) => { e.stopPropagation(); onRushRepair(p.id); }} style={{
+                                flex: 1, padding: '8px', background: tokens.color.surface, border: `1px solid ${tokens.color.amber}30`,
+                                borderRadius: 6, cursor: game.budget < BALANCING.RUSH_REPAIR_COST ? 'not-allowed' : 'pointer',
+                                fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber,
+                                fontWeight: 600, minHeight: 44,
+                                opacity: game.budget < BALANCING.RUSH_REPAIR_COST ? 0.5 : 1,
+                              }}>
+                                {'\u26A1'} Rush Repair (R{BALANCING.RUSH_REPAIR_COST}M)
+                              </button>
+                            )}
+                            {p.status === 'maintenance' && p.maintenanceDaysLeft > 1 && (
+                              <button onClick={(e) => { e.stopPropagation(); onRushMaintenance(p.id); }} style={{
+                                flex: 1, padding: '8px', background: tokens.color.surface, border: `1px solid ${tokens.color.cyan}30`,
+                                borderRadius: 6, cursor: game.budget < BALANCING.RUSH_MAINTENANCE_COST ? 'not-allowed' : 'pointer',
+                                fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.cyan,
+                                fontWeight: 600, minHeight: 44,
+                                opacity: game.budget < BALANCING.RUSH_MAINTENANCE_COST ? 0.5 : 1,
+                              }}>
+                                {'\u26A1'} Rush Maint (R{BALANCING.RUSH_MAINTENANCE_COST}M, -1d)
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -320,6 +347,35 @@ export function DashboardScreen({
                 </div>
               </Card>
             )}
+            {/* Power Diversion */}
+            <Card style={staggeredFadeUp(3)}>
+              <SectionHeader icon={'\u{1F50C}'}>Power Diversion</SectionHeader>
+              <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim, marginBottom: 8, marginTop: -4 }}>
+                Sell grid power to private buyers for offshore payments.
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                <button onClick={() => onSetDiversion(Math.max(0, game.diversionMW - BALANCING.DIVERSION_INCREMENT))} style={{
+                  padding: '6px 12px', background: tokens.color.surface, border: `1px solid ${tokens.color.border}`,
+                  borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.muted, minHeight: 44,
+                }}>-{BALANCING.DIVERSION_INCREMENT}</button>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontFamily: tokens.font.mono, fontSize: 18, fontWeight: 800, color: game.diversionMW > 0 ? tokens.color.gold : tokens.color.dim }}>
+                    {formatMW(game.diversionMW)}
+                  </div>
+                  <div style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.dim }}>DIVERTED</div>
+                </div>
+                <button onClick={() => onSetDiversion(game.diversionMW + BALANCING.DIVERSION_INCREMENT)} style={{
+                  padding: '6px 12px', background: tokens.color.surface, border: `1px solid ${tokens.color.gold}30`,
+                  borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.gold, minHeight: 44,
+                }}>+{BALANCING.DIVERSION_INCREMENT}</button>
+              </div>
+              {game.diversionMW > 0 && (
+                <div style={{ display: 'flex', gap: 12, fontFamily: tokens.font.mono, fontSize: 9, justifyContent: 'center' }}>
+                  <span style={{ color: tokens.color.goldBright }}>Income: +{formatMoney(Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_INCOME_PER_100MW))}/day</span>
+                  <span style={{ color: tokens.color.red }}>Detection: {Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_DETECTION_CHANCE_PER_100MW * 100)}%</span>
+                </div>
+              )}
+            </Card>
           </>
         )}
 
@@ -401,6 +457,21 @@ export function DashboardScreen({
                   {!game.emergencyLevyUsed && (
                     <ActionButton icon={'\u{1F4B8}'} label="Emergency Levy" desc="+R800M, -10% industry" color={tokens.color.red} onClick={onEmergencyLevy} />
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Influence Actions */}
+            {game.influence > 0 && (
+              <div style={staggeredFadeUp(4)}>
+                <SectionHeader icon={'\u{1F3DB}\uFE0F'}>Influence ({Math.round(game.influence)}/{BALANCING.INFLUENCE_MAX})</SectionHeader>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <ActionButton icon={'\u{1F910}'} label="Suppress Rage" desc={`-${BALANCING.INFLUENCE_SUPPRESS_RAGE_AMOUNT} rage (cost: ${BALANCING.INFLUENCE_SUPPRESS_RAGE_COST})`}
+                    color={tokens.color.green} onClick={() => onSpendInfluence('suppress_rage')}
+                    disabled={game.influence < BALANCING.INFLUENCE_SUPPRESS_RAGE_COST} />
+                  <ActionButton icon={'\u{1F6E1}\uFE0F'} label="Deflect Audit" desc={`Block investigation (cost: ${BALANCING.INFLUENCE_DEFLECT_INVESTIGATION_COST})`}
+                    color={tokens.color.blue} onClick={() => onSpendInfluence('deflect_investigation')}
+                    disabled={game.influence < BALANCING.INFLUENCE_DEFLECT_INVESTIGATION_COST} />
                 </div>
               </div>
             )}

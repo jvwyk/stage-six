@@ -27,7 +27,18 @@ interface GameStore {
   setPlantMode: (plantId: string, mode: import('../data/types').PlantOperatingMode) => void;
   activateDiesel: (plantId: string) => void;
   scheduleMaintenance: (plantId: string) => void;
+  rushRepair: (plantId: string) => void;
+  rushMaintenance: (plantId: string) => void;
   makeEventChoice: (eventId: string, choiceIndex: number) => void;
+
+  // Tender actions
+  processTender: (tenderId: string, action: import('../data/types').TenderAction, inflationLevel: number) => void;
+
+  // Power diversion
+  setDiversion: (mw: number) => void;
+
+  // Influence
+  spendInfluence: (action: 'suppress_rage' | 'deflect_investigation' | 'cover_diversion') => void;
 
   // Fuel & capacity
   buyDieselFuel: () => void;
@@ -218,6 +229,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ game: updated });
   },
 
+  rushRepair: (plantId) => {
+    const { game } = get();
+    if (!game || game.budget < BALANCING.RUSH_REPAIR_COST) return;
+    const idx = game.plants.findIndex((p) => p.id === plantId);
+    if (idx < 0 || game.plants[idx].status !== 'forced_outage' || game.plants[idx].daysUntilRepair <= 0) return;
+
+    const updatedPlants = [...game.plants];
+    updatedPlants[idx] = {
+      ...game.plants[idx],
+      daysUntilRepair: Math.ceil(game.plants[idx].daysUntilRepair / 2),
+    };
+    const updated: GameState = {
+      ...game,
+      plants: updatedPlants,
+      budget: game.budget - BALANCING.RUSH_REPAIR_COST,
+      heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.RUSH_REPAIR_HEAT),
+      transactionLog: [...game.transactionLog, { label: `Rush repair ${game.plants[idx].name}`, amount: -BALANCING.RUSH_REPAIR_COST }],
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  rushMaintenance: (plantId) => {
+    const { game } = get();
+    if (!game || game.budget < BALANCING.RUSH_MAINTENANCE_COST) return;
+    const idx = game.plants.findIndex((p) => p.id === plantId);
+    if (idx < 0 || game.plants[idx].status !== 'maintenance' || game.plants[idx].maintenanceDaysLeft <= 0) return;
+
+    const updatedPlants = [...game.plants];
+    updatedPlants[idx] = {
+      ...game.plants[idx],
+      maintenanceDaysLeft: Math.max(1, game.plants[idx].maintenanceDaysLeft - 1),
+    };
+    const updated: GameState = {
+      ...game,
+      plants: updatedPlants,
+      budget: game.budget - BALANCING.RUSH_MAINTENANCE_COST,
+      heat: Math.min(BALANCING.HEAT_MAX, game.heat + BALANCING.RUSH_MAINTENANCE_HEAT),
+      transactionLog: [...game.transactionLog, { label: `Rush maintenance ${game.plants[idx].name}`, amount: -BALANCING.RUSH_MAINTENANCE_COST }],
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
   makeEventChoice: (eventId, choiceIndex) => {
     const { game } = get();
     if (!game) return;
@@ -316,6 +371,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         skimAmount: skimGain,
         heatAdded: BALANCING.DIESEL_FUEL_SELL_HEAT,
         category: 'selloff' as const,
+        inflationLevel: 0,
       }],
       transactionLog: [
         ...game.transactionLog,
@@ -361,6 +417,74 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.EMERGENCY_LEVY_RAGE_COST),
       regions: updatedRegions,
       emergencyLevyUsed: true,
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  processTender: (tenderId, action, inflationLevel) => {
+    const { game } = get();
+    if (!game) return;
+
+    const updated: GameState = {
+      ...game,
+      playerActions: {
+        ...game.playerActions,
+        tenders: [...game.playerActions.tenders, { tenderId, action, inflationLevel }],
+        // Also add to legacy deals for backward compat with engine processing
+        deals: [...game.playerActions.deals, {
+          opportunityId: tenderId,
+          choice: action === 'clean' ? 'clean' as const : action === 'skip' ? 'skip' as const : 'take' as const,
+        }],
+      },
+    };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  setDiversion: (mw) => {
+    const { game } = get();
+    if (!game) return;
+
+    const maxMW = Math.round(
+      game.plants.reduce((sum, p) =>
+        (p.status === 'online' || p.status === 'derated') ? sum + p.currentOutput : sum, 0)
+      * BALANCING.DIVERSION_MAX_RATIO,
+    );
+    const clamped = Math.max(0, Math.min(mw, maxMW));
+
+    const updated: GameState = { ...game, diversionMW: clamped };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  spendInfluence: (action) => {
+    const { game } = get();
+    if (!game) return;
+
+    let cost = 0;
+    let rageReduction = 0;
+
+    switch (action) {
+      case 'suppress_rage':
+        cost = BALANCING.INFLUENCE_SUPPRESS_RAGE_COST;
+        rageReduction = BALANCING.INFLUENCE_SUPPRESS_RAGE_AMOUNT;
+        break;
+      case 'deflect_investigation':
+        cost = BALANCING.INFLUENCE_DEFLECT_INVESTIGATION_COST;
+        break;
+      case 'cover_diversion':
+        cost = BALANCING.INFLUENCE_COVER_DIVERSION_COST;
+        break;
+    }
+
+    if (game.influence < cost) return;
+
+    const updated: GameState = {
+      ...game,
+      influence: game.influence - cost,
+      rage: Math.max(0, game.rage - rageReduction),
+      transactionLog: [...game.transactionLog, { label: `Influence: ${action.replace(/_/g, ' ')}`, amount: 0 }],
     };
     saveCurrentRun(updated);
     set({ game: updated });
