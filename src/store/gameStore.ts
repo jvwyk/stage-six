@@ -22,9 +22,6 @@ interface GameStore {
   abandonRun: () => void;
 
   // Player actions
-  takeDeal: (opportunityId: string) => void;
-  cleanDeal: (opportunityId: string) => void;
-  skipDeal: (opportunityId: string) => void;
   setStage: (stage: number) => void;
   setPlantMode: (plantId: string, mode: import('../data/types').PlantOperatingMode) => void;
   activateDiesel: (plantId: string) => void;
@@ -83,50 +80,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ game: null, screen: 'title' });
   },
 
-  takeDeal: (opportunityId) => {
-    const { game } = get();
-    if (!game) return;
-
-    const updated: GameState = {
-      ...game,
-      playerActions: {
-        ...game.playerActions,
-        deals: [...game.playerActions.deals, { opportunityId, choice: 'take' }],
-      },
-    };
-    saveCurrentRun(updated);
-    set({ game: updated });
-  },
-
-  cleanDeal: (opportunityId) => {
-    const { game } = get();
-    if (!game) return;
-
-    const updated: GameState = {
-      ...game,
-      playerActions: {
-        ...game.playerActions,
-        deals: [...game.playerActions.deals, { opportunityId, choice: 'clean' }],
-      },
-    };
-    saveCurrentRun(updated);
-    set({ game: updated });
-  },
-
-  skipDeal: (opportunityId) => {
-    const { game } = get();
-    if (!game) return;
-
-    const updated: GameState = {
-      ...game,
-      playerActions: {
-        ...game.playerActions,
-        deals: [...game.playerActions.deals, { opportunityId, choice: 'skip' }],
-      },
-    };
-    saveCurrentRun(updated);
-    set({ game: updated });
-  },
 
   setStage: (stage) => {
     const { game } = get();
@@ -506,6 +459,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ...game,
       influence: game.influence - cost,
       rage: Math.max(0, game.rage - rageReduction),
+      deflectedInvestigation: action === 'deflect_investigation' ? true : game.deflectedInvestigation,
+      diversionCovered: action === 'cover_diversion' ? true : game.diversionCovered,
       transactionLog: [...game.transactionLog, { label: `Influence: ${action.replace(/_/g, ' ')}`, amount: 0 }],
     };
     saveCurrentRun(updated);

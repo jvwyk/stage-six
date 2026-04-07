@@ -89,6 +89,8 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     tariffMultiplier: 1.0,
     bailoutUsed: false,
     emergencyLevyUsed: false,
+    deflectedInvestigation: false,
+    diversionCovered: false,
     dieselFuelDays: 0,
     emergencyImportMW: 0,
     diversionMW: 0,
@@ -326,12 +328,22 @@ export function resolveDay(state: GameState): GameState {
   const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW);
 
   // 9a. Process power diversion income and detection
+  let dayDiversionIncome = 0;
+  let dayDiversionDetected = false;
   if (s.diversionMW > 0) {
-    const diversionIncome = DiversionEngine.calculateDiversionIncome(s.diversionMW);
-    daySkimmed += diversionIncome;
-    dayEvents.push(`Diverted ${s.diversionMW}MW to private clients — +R${diversionIncome}M to bag`);
+    dayDiversionIncome = DiversionEngine.calculateDiversionIncome(s.diversionMW);
+    daySkimmed += dayDiversionIncome;
+    dayEvents.push(`Diverted ${s.diversionMW}MW to private clients — +R${dayDiversionIncome}M to bag`);
 
-    if (DiversionEngine.checkDiversionDetection(s.diversionMW, random)) {
+    // If covered by influence, halve effective MW for detection roll
+    const detectionMW = s.diversionCovered ? Math.round(s.diversionMW / 2) : s.diversionMW;
+    if (s.diversionCovered) {
+      dayEvents.push('Inside contacts providing cover for diversion');
+      s.diversionCovered = false;
+    }
+
+    if (DiversionEngine.checkDiversionDetection(detectionMW, random)) {
+      dayDiversionDetected = true;
       dayHeatAdded += BALANCING.DIVERSION_DETECTED_HEAT;
       dayRageFromActions += BALANCING.DIVERSION_DETECTED_RAGE;
       dayEvents.push('Power diversion DETECTED — Hawks investigating, public outraged');
@@ -378,10 +390,15 @@ export function resolveDay(state: GameState): GameState {
 
   // 14. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
   if (HeatEngine.checkInvestigation(s.heat, random) && s.corruptionLog.length > 0) {
-    const exposedDeal = random.pick(s.corruptionLog);
-    dayRageFromActions += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
-    dayBudgetCosts += BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
-    dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
+    if (s.deflectedInvestigation) {
+      s.deflectedInvestigation = false;
+      dayEvents.push('Your political allies blocked the investigation');
+    } else {
+      const exposedDeal = random.pick(s.corruptionLog);
+      dayRageFromActions += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
+      dayBudgetCosts += BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
+      dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
+    }
   }
 
   // 15. Calculate rage (new formula: rewards stage reduction + meeting demand)
@@ -509,6 +526,9 @@ export function resolveDay(state: GameState): GameState {
     heatDelta: heatResult.heatDelta,
     rageDelta: rageResult.rageDelta,
     budgetDelta: econResult.budgetDelta,
+    influenceDelta: influenceGain,
+    diversionIncome: dayDiversionIncome,
+    diversionDetected: dayDiversionDetected,
     events: dayEvents,
     plantFailures,
     revenue,
@@ -528,11 +548,13 @@ export function resolveDay(state: GameState): GameState {
     );
     if (teaserOpps.length > 0) {
       const biggestOpp = teaserOpps.reduce((max, op) =>
-        op.skimAmount > max.skimAmount ? op : max, teaserOpps[0]);
+        op.baseCost > max.baseCost ? op : max, teaserOpps[0]);
+      const maxPct = Math.round((biggestOpp.maxInflation - 1) * 100);
       dayReport.tomorrowTeaser = {
         title: biggestOpp.title,
-        skimAmount: biggestOpp.skimAmount,
-        hint: s.heat > 70 ? `But your heat is at ${Math.round(s.heat)}%...` : 'Tempting...',
+        baseCost: biggestOpp.baseCost,
+        maxInflationPct: maxPct,
+        hint: s.heat > 70 ? `But your heat is at ${Math.round(s.heat)}%...` : `Base R${biggestOpp.baseCost}M — inflate up to ${maxPct}%`,
       };
     }
   }
@@ -611,6 +633,8 @@ export function advanceToNextDay(state: GameState): GameState {
     dayReport: null,
     emergencyImportMW: 0,
     diversionMW: 0,
+    deflectedInvestigation: false,
+    diversionCovered: false,
     transactionLog: [],
     playerActions: createEmptyActions(),
   };

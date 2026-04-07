@@ -208,9 +208,13 @@ export interface DayReport {
   costs: number;
   supplyTotal: number;
   demandTotal: number;
+  influenceDelta: number;
+  diversionIncome: number;
+  diversionDetected: boolean;
   tomorrowTeaser?: {
     title: string;
-    skimAmount: number;
+    baseCost: number;
+    maxInflationPct: number;
     hint: string;
   };
 }
@@ -301,6 +305,10 @@ export interface GameState {
   tariffMultiplier: number;
   bailoutUsed: boolean;
   emergencyLevyUsed: boolean;
+
+  // Influence spend flags (reset daily)
+  deflectedInvestigation: boolean;
+  diversionCovered: boolean;
 
   // Fuel & capacity
   dieselFuelDays: number;

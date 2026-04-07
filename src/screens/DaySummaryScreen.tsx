@@ -41,16 +41,18 @@ export function DaySummaryScreen({ report, onContinue }: DaySummaryScreenProps) 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
         {/* Key Metrics */}
         <Card style={staggeredFadeUp(1)}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, textAlign: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center' }}>
             {[
               { label: 'SKIMMED', val: report.skimmed > 0 ? `+${formatMoney(report.skimmed)}` : 'R0', color: tokens.color.goldBright, icon: '\u{1F4B0}' },
               { label: 'AVG STAGE', val: report.avgStage.toFixed(1), color: tokens.color.amber, icon: '\u26A1' },
               { label: 'HEAT', val: `${report.heatDelta >= 0 ? '+' : ''}${Math.round(report.heatDelta)}%`, color: tokens.color.red, icon: '\u{1F525}' },
               { label: 'RAGE', val: `${report.rageDelta >= 0 ? '+' : ''}${Math.round(report.rageDelta)}%`, color: tokens.color.red, icon: '\u{1F621}' },
+              { label: 'INFLUENCE', val: `${report.influenceDelta >= 0 ? '+' : ''}${report.influenceDelta}`, color: tokens.color.purple, icon: '\u{1F3DB}\uFE0F' },
+              { label: report.diversionDetected ? 'DETECTED!' : 'DIVERSION', val: report.diversionIncome > 0 ? `+${formatMoney(report.diversionIncome)}` : '--', color: report.diversionDetected ? tokens.color.red : tokens.color.gold, icon: '\u{1F50C}' },
             ].map((s, i) => (
               <div key={i} style={staggeredFadeUp(i + 2)}>
-                <div style={{ fontSize: 16, marginBottom: 2 }}>{s.icon}</div>
-                <div style={{ fontFamily: tokens.font.mono, fontSize: 16, fontWeight: 800, color: s.color }}>{s.val}</div>
+                <div style={{ fontSize: 14, marginBottom: 2 }}>{s.icon}</div>
+                <div style={{ fontFamily: tokens.font.mono, fontSize: 14, fontWeight: 800, color: s.color }}>{s.val}</div>
                 <div style={{ fontFamily: tokens.font.mono, fontSize: 7, color: tokens.color.dim, letterSpacing: '0.08em', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
@@ -95,7 +97,10 @@ export function DaySummaryScreen({ report, onContinue }: DaySummaryScreenProps) 
                 </div>
                 <div style={{
                   fontFamily: tokens.font.serif, fontSize: 20, color: tokens.color.goldBright, fontWeight: 900,
-                }}>Up to {formatMoney(report.tomorrowTeaser.skimAmount)}</div>
+                }}>Base R{report.tomorrowTeaser.baseCost}M</div>
+                <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber }}>
+                  Inflate up to {report.tomorrowTeaser.maxInflationPct}%
+                </div>
                 <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim, marginTop: 2 }}>
                   {report.tomorrowTeaser.hint}
                 </div>
