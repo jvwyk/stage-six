@@ -380,7 +380,19 @@ export function DashboardScreen({
               {game.diversionMW > 0 && (
                 <div style={{ display: 'flex', gap: 12, fontFamily: tokens.font.mono, fontSize: 9, justifyContent: 'center' }}>
                   <span style={{ color: tokens.color.goldBright }}>Income: +{formatMoney(Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_INCOME_PER_100MW))}/day</span>
-                  <span style={{ color: tokens.color.red }}>Detection: {Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_DETECTION_CHANCE_PER_100MW * 100)}%</span>
+                  {game.diversionCovered ? (
+                    <>
+                      <span style={{ color: tokens.color.green, fontWeight: 700 }}>COVERED</span>
+                      <span style={{ color: tokens.color.dim, textDecoration: 'line-through' }}>
+                        {Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_DETECTION_CHANCE_PER_100MW * 100)}%
+                      </span>
+                      <span style={{ color: tokens.color.green }}>
+                        Detection: {Math.round((game.diversionMW / 200) * BALANCING.DIVERSION_DETECTION_CHANCE_PER_100MW * 100)}%
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ color: tokens.color.red }}>Detection: {Math.round((game.diversionMW / 100) * BALANCING.DIVERSION_DETECTION_CHANCE_PER_100MW * 100)}%</span>
+                  )}
                 </div>
               )}
             </Card>
@@ -480,6 +492,9 @@ export function DashboardScreen({
                   <ActionButton icon={'\u{1F6E1}\uFE0F'} label="Deflect Audit" desc={`Block investigation (cost: ${BALANCING.INFLUENCE_DEFLECT_INVESTIGATION_COST})`}
                     color={tokens.color.blue} onClick={() => onSpendInfluence('deflect_investigation')}
                     disabled={game.influence < BALANCING.INFLUENCE_DEFLECT_INVESTIGATION_COST} />
+                  <ActionButton icon={'\u{1F50C}'} label="Cover Diversion" desc={`Halve detection risk (cost: ${BALANCING.INFLUENCE_COVER_DIVERSION_COST})`}
+                    color={tokens.color.cyan} onClick={() => onSpendInfluence('cover_diversion')}
+                    disabled={game.influence < BALANCING.INFLUENCE_COVER_DIVERSION_COST || game.diversionCovered} />
                 </div>
               </div>
             )}

@@ -310,6 +310,9 @@ export interface GameState {
   deflectedInvestigation: boolean;
   diversionCovered: boolean;
 
+  // Breaking news flash (null when none)
+  breakingNews: string | null;
+
   // Fuel & capacity
   dieselFuelDays: number;
   emergencyImportMW: number;

@@ -1,4 +1,4 @@
-import type { GameState, DayReport, EndCondition, PlantState, RegionState, PlayerActions, GridEffect } from '../data/types';
+import type { GameState, DayReport, EndCondition, PlantState, RegionState, PlayerActions, GridEffect, ActiveEvent } from '../data/types';
 import { BALANCING } from '../data/balancing';
 import { PLANTS } from '../data/plants';
 import { REGIONS } from '../data/regions';
@@ -10,6 +10,7 @@ import * as HeatEngine from './HeatEngine';
 import * as EconomyEngine from './EconomyEngine';
 import * as OpportunityEngine from './OpportunityEngine';
 import * as EventEngine from './EventEngine';
+import { EVENTS } from '../data/events';
 import * as DiversionEngine from './DiversionEngine';
 import * as InfluenceEngine from './InfluenceEngine';
 
@@ -91,6 +92,7 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     emergencyLevyUsed: false,
     deflectedInvestigation: false,
     diversionCovered: false,
+    breakingNews: null,
     dieselFuelDays: 0,
     emergencyImportMW: 0,
     diversionMW: 0,
@@ -388,16 +390,43 @@ export function resolveDay(state: GameState): GameState {
   s.heat = heatResult.newHeat;
   dayEvents.push(...heatResult.events);
 
+  // 13b. Set breaking news on heat threshold crossings
+  for (const ev of heatResult.events) {
+    if (ev.includes('Journalists') || ev.includes('inquiry') || ev.includes('Arrest is imminent')) {
+      s.breakingNews = ev;
+    }
+  }
+
   // 14. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
   if (HeatEngine.checkInvestigation(s.heat, random) && s.corruptionLog.length > 0) {
     if (s.deflectedInvestigation) {
       s.deflectedInvestigation = false;
       dayEvents.push('Your political allies blocked the investigation');
     } else {
-      const exposedDeal = random.pick(s.corruptionLog);
-      dayRageFromActions += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
-      dayBudgetCosts += BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
-      dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
+      // Try to inject a named investigation event instead of generic text
+      const investigationEvents = EVENTS.filter((e) =>
+        e.category === 'heat' && e.choices && e.choices.length > 0
+        && !s.activeEvents.some((ae) => ae.event.id === e.id)
+      );
+      if (investigationEvents.length > 0) {
+        const picked = random.pick(investigationEvents);
+        const exposedDeal = random.pick(s.corruptionLog);
+        const activeEvent: ActiveEvent = {
+          event: {
+            ...picked,
+            description: `${picked.description} (Linked to your ${exposedDeal.action} deal from day ${exposedDeal.day})`,
+          },
+          remainingDays: picked.duration,
+        };
+        s.activeEvents = [...s.activeEvents, activeEvent];
+        dayEvents.push(`${picked.icon} ${picked.title}: ${exposedDeal.action} deal from day ${exposedDeal.day} under scrutiny`);
+      } else {
+        // Fallback to generic if all investigation events already active
+        const exposedDeal = random.pick(s.corruptionLog);
+        dayRageFromActions += BALANCING.HEAT_INVESTIGATION_RAGE_COST;
+        dayBudgetCosts += BALANCING.HEAT_INVESTIGATION_BUDGET_COST;
+        dayEvents.push(`Investigation exposed your ${exposedDeal.action} deal from day ${exposedDeal.day}`);
+      }
     }
   }
 
@@ -635,6 +664,7 @@ export function advanceToNextDay(state: GameState): GameState {
     diversionMW: 0,
     deflectedInvestigation: false,
     diversionCovered: false,
+    breakingNews: null,
     transactionLog: [],
     playerActions: createEmptyActions(),
   };

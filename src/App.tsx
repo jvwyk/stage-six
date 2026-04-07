@@ -132,10 +132,27 @@ function App() {
       })()}
 
       {screen === 'day_summary' && game?.dayReport && (
-        <DaySummaryScreen
-          report={game.dayReport}
-          onContinue={continueTomorrow}
-        />
+        <>
+          {game.breakingNews && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+              background: 'linear-gradient(90deg, #cc0000, #990000)',
+              padding: '10px 16px', textAlign: 'center',
+              animation: 'fadeUp 0.3s ease',
+            }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 8, color: '#ffcccc', letterSpacing: '0.2em', fontWeight: 700 }}>
+                BREAKING NEWS
+              </div>
+              <div style={{ fontFamily: 'serif', fontSize: 14, color: '#ffffff', fontWeight: 700, marginTop: 2 }}>
+                {game.breakingNews}
+              </div>
+            </div>
+          )}
+          <DaySummaryScreen
+            report={game.dayReport}
+            onContinue={continueTomorrow}
+          />
+        </>
       )}
 
       {screen === 'breaking_news' && game && (
