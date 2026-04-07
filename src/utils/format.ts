@@ -4,8 +4,10 @@
  */
 export function formatMoney(millions: number): string {
   if (millions === 0) return 'R0';
-  if (millions >= 1000) return `R${(millions / 1000).toFixed(1)}B`;
-  return `R${millions}M`;
+  const abs = Math.abs(millions);
+  const sign = millions < 0 ? '-' : '';
+  if (abs >= 1000) return `${sign}R${(abs / 1000).toFixed(1)}B`;
+  return `${sign}R${abs}M`;
 }
 
 /**

@@ -151,15 +151,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const plant = game.plants[plantIdx];
     if (plant.status !== 'online' && plant.status !== 'derated') return;
 
-    // Immediately take offline and deduct cost
-    const maintenanceCost = Math.round(
-      BALANCING.MAINTENANCE_COST_MIN +
-      Math.random() * (BALANCING.MAINTENANCE_COST_MAX - BALANCING.MAINTENANCE_COST_MIN),
-    );
-    const duration = Math.round(
-      BALANCING.MAINTENANCE_DURATION_MIN +
-      Math.random() * (BALANCING.MAINTENANCE_DURATION_MAX - BALANCING.MAINTENANCE_DURATION_MIN),
-    );
+    // Immediately take offline and deduct cost (use seeded random for determinism)
+    const mRandom = new SeededRandom(`${game.seed}-maint-${game.day}-${plantId}`);
+    const maintenanceCost = mRandom.range(BALANCING.MAINTENANCE_COST_MIN, BALANCING.MAINTENANCE_COST_MAX);
+    const duration = mRandom.range(BALANCING.MAINTENANCE_DURATION_MIN, BALANCING.MAINTENANCE_DURATION_MAX);
 
     const updatedPlants = [...game.plants];
     updatedPlants[plantIdx] = {

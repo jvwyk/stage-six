@@ -158,19 +158,17 @@ export function tickFailureDebt(plants: PlantState[]): PlantState[] {
       debtIncrease += BALANCING.FAILURE_DEBT_DAILY_INCREASE;
     }
 
-    // Overload penalty (automatic when mode pushes beyond capacity)
-    const modeOutput = getModeOutputMultiplier(plant.operatingMode);
-    if (modeOutput > BALANCING.PLANT_OVERLOAD_THRESHOLD) {
+    // Overload penalty (when actual output exceeds safe capacity threshold)
+    const outputRatio = plant.maxCapacity > 0 ? plant.currentOutput / plant.maxCapacity : 0;
+    if (outputRatio > BALANCING.PLANT_OVERLOAD_THRESHOLD) {
       debtIncrease += BALANCING.FAILURE_DEBT_OVERLOAD_INCREASE;
     }
 
     // Apply mode multiplier to all debt accumulation
     debtIncrease = Math.round(debtIncrease * modeMult);
 
-    // Don't increment maintenance counter on the day maintenance completes
-    const newDaysSince = plant.daysSinceLastMaintenance === 0
-      ? 0
-      : plant.daysSinceLastMaintenance + 1;
+    // Always increment maintenance counter (reset happens in tickPlantTimers on maintenance completion)
+    const newDaysSince = plant.daysSinceLastMaintenance + 1;
 
     return {
       ...plant,

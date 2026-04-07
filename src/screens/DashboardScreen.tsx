@@ -65,7 +65,7 @@ export function DashboardScreen({
     ? game.corruptionLog[game.corruptionLog.length - 1].skimAmount : 0;
   const budgetDelta = game.dayReport?.budgetDelta ?? 0;
 
-  const decidedIds = new Set(game.playerActions.deals.map((d) => d.opportunityId));
+  const decidedIds = new Set(game.playerActions.tenders.map((d) => d.tenderId));
   const pendingOpportunities = game.todaysOpportunities.filter((o) => !decidedIds.has(o.id));
   const { minimumStage, recommendedStage } = calculateMinimumStage(totalSupply, totalDemand);
 

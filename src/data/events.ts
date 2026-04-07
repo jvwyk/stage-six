@@ -173,7 +173,7 @@ export const EVENTS: EventDefinition[] = [
     maxDay: 25,
     weight: 3,
     effects: [{ type: 'demand', target: 'johannesburg', value: 5 }],
-    duration: 0,
+    duration: 999,
   },
 
   // ── Social Events ──

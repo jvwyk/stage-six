@@ -75,6 +75,21 @@ export function loadCurrentRun(): GameState | null {
     playerActions: { ...state.playerActions, tenders: state.playerActions?.tenders ?? [] },
     auditRisk: state.auditRisk ?? 0,
     corruptionScore: state.corruptionScore ?? 0,
+    // Arrays that must exist for .length/.push/.filter
+    bagHistory: state.bagHistory ?? [],
+    heatHistory: state.heatHistory ?? [],
+    rageHistory: state.rageHistory ?? [],
+    stageHistory: state.stageHistory ?? [],
+    corruptionLog: state.corruptionLog ?? [],
+    decisionsLog: state.decisionsLog ?? [],
+    activeEvents: state.activeEvents ?? [],
+    todaysOpportunities: state.todaysOpportunities ?? [],
+    recentOpportunityIds: state.recentOpportunityIds ?? [],
+    regions: state.regions ?? [],
+    // Numeric fields with safe defaults
+    bankruptcyDays: state.bankruptcyDays ?? 0,
+    consecutiveLowSupplyDays: state.consecutiveLowSupplyDays ?? 0,
+    dayReport: state.dayReport ?? null,
   };
 }
 

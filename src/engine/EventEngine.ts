@@ -86,12 +86,14 @@ export function getActiveEventEffects(
   rageDelta: number;
   heatDelta: number;
   budgetDelta: number;
+  plantStatusEffects: Array<{ target: string; status: string }>;
 } {
   let supplyModifier = 0;
   const demandModifiers = new Map<string, number>();
   let rageDelta = 0;
   let heatDelta = 0;
   let budgetDelta = 0;
+  const plantStatusEffects: Array<{ target: string; status: string }> = [];
 
   for (const ae of activeEvents) {
     const applyEffect = (effect: { type: string; target?: string; value: number }) => {
@@ -114,6 +116,11 @@ export function getActiveEventEffects(
         case 'budget':
           budgetDelta += effect.value;
           break;
+        case 'plant_status':
+          if (effect.target) {
+            plantStatusEffects.push({ target: effect.target, status: String(effect.value) });
+          }
+          break;
       }
     };
 
@@ -133,7 +140,7 @@ export function getActiveEventEffects(
     }
   }
 
-  return { supplyModifier, demandModifiers, rageDelta, heatDelta, budgetDelta };
+  return { supplyModifier, demandModifiers, rageDelta, heatDelta, budgetDelta, plantStatusEffects };
 }
 
 /**

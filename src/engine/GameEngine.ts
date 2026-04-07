@@ -120,6 +120,22 @@ export function createEmptyActions(): PlayerActions {
 function applyGridEffect(plants: PlantState[], effect: GridEffect, random: SeededRandom): PlantState[] {
   if (effect.type === 'none') return plants;
 
+  // Pre-select random targets before mapping
+  let selectedIds: Set<string> | null = null;
+
+  if (effect.type === 'plant_damage' && effect.target === 'random_two') {
+    const onlinePlants = plants.filter((p) => p.status === 'online' || p.status === 'derated');
+    const picks = random.shuffle(onlinePlants).slice(0, 2);
+    selectedIds = new Set(picks.map((p) => p.id));
+  }
+
+  if (effect.type === 'plant_repair' && effect.target === 'random') {
+    const brokenPlants = plants.filter((p) => p.status === 'forced_outage' || p.status === 'derated');
+    if (brokenPlants.length > 0) {
+      selectedIds = new Set([random.pick(brokenPlants).id]);
+    }
+  }
+
   return plants.map((plant) => {
     switch (effect.type) {
       case 'capacity_change': {
@@ -136,8 +152,7 @@ function applyGridEffect(plants: PlantState[], effect: GridEffect, random: Seede
         return plant;
       }
       case 'plant_repair': {
-        // Repair a random plant that needs it, or a specific one
-        if (effect.target === 'random' && (plant.status === 'forced_outage' || plant.status === 'derated')) {
+        if (effect.target === 'random' && selectedIds?.has(plant.id)) {
           return {
             ...plant,
             daysUntilRepair: Math.max(0, plant.daysUntilRepair - effect.value),
@@ -152,12 +167,12 @@ function applyGridEffect(plants: PlantState[], effect: GridEffect, random: Seede
         return plant;
       }
       case 'plant_damage': {
-        if (effect.target === 'random_two' && random.chance(0.5)) {
+        if (effect.target === 'random_two' && selectedIds?.has(plant.id)) {
           return {
             ...plant,
             status: 'forced_outage' as const,
             currentOutput: 0,
-            daysUntilRepair: 999, // Permanent
+            daysUntilRepair: 999,
           };
         }
         return plant;
@@ -201,6 +216,32 @@ export function resolveDay(state: GameState): GameState {
 
   // 4. Get active event effects
   const eventEffects = EventEngine.getActiveEventEffects(s.activeEvents);
+
+  // 4b. Apply plant_status effects from events (take plants offline)
+  if (eventEffects.plantStatusEffects.length > 0) {
+    for (const pse of eventEffects.plantStatusEffects) {
+      let targetId = pse.target;
+      if (targetId === 'random') {
+        const onlinePlants = s.plants.filter((p) => p.status === 'online' || p.status === 'derated');
+        if (onlinePlants.length > 0) targetId = random.pick(onlinePlants).id;
+        else continue;
+      } else if (targetId === 'random_coal') {
+        const coalPlants = s.plants.filter((p) => p.type === 'coal' && (p.status === 'online' || p.status === 'derated'));
+        if (coalPlants.length > 0) targetId = random.pick(coalPlants).id;
+        else continue;
+      }
+      const idx = s.plants.findIndex((p) => p.id === targetId);
+      if (idx >= 0 && s.plants[idx].status !== 'forced_outage') {
+        s.plants = [...s.plants.slice(0, idx), {
+          ...s.plants[idx],
+          status: 'forced_outage' as const,
+          currentOutput: 0,
+          daysUntilRepair: random.range(2, 5),
+        }, ...s.plants.slice(idx + 1)];
+        dayEvents.push(`${s.plants[idx].name} forced offline by event`);
+      }
+    }
+  }
 
   // ── PHASE 2: Player Actions ──
 
@@ -481,7 +522,8 @@ export function resolveDay(state: GameState): GameState {
   const revenue = EconomyEngine.calculateRevenue(s.regions, s.rage, s.tariffMultiplier);
   const fuelCosts = EconomyEngine.calculateCosts(s.plants, 0);
   const heatPenalty = EconomyEngine.calculateHeatPenalty(s.budget, s.heat);
-  const totalDayCosts = fuelCosts + dayBudgetCosts + eventEffects.budgetDelta + heatPenalty - satisfactionBonus;
+  // budgetDelta from events is negative = cost, so negate to add as positive cost
+  const totalDayCosts = fuelCosts + dayBudgetCosts - eventEffects.budgetDelta + heatPenalty - satisfactionBonus;
   if (heatPenalty > 0) {
     dayEvents.push(`Legal fees from investigations: -R${heatPenalty}M`);
   }
@@ -642,11 +684,11 @@ export function advanceToNextDay(state: GameState): GameState {
     random,
   );
 
-  // Auto-set stage to at least recommended for the new day
+  // Auto-set stage to recommended for the new day (allows stage to go down when supply improves)
   const supply = PlantEngine.getAvailableCapacity(state.plants);
   const demand = state.regions.reduce((sum, r) => sum + r.baseDemand, 0);
   const { recommendedStage } = SimulationEngine.calculateMinimumStage(supply, demand);
-  const newStage = Math.max(state.currentStage, recommendedStage);
+  const newStage = recommendedStage;
 
   return {
     ...state,
