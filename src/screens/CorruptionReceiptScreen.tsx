@@ -4,10 +4,19 @@ import { staggeredFadeUp } from '../styles/animations';
 import { Card } from '../components/shared/Card';
 import { MeterBar } from '../components/shared/MeterBar';
 import { formatMoney } from '../utils/format';
-import type { GameState } from '../data/types';
+import type { GameState, EndReason } from '../data/types';
 import { copyToClipboard } from '../utils/share';
 import { calculateFinalScore, assignTitle, generateShareText } from '../engine/ScoringEngine';
 import { BALANCING } from '../data/balancing';
+
+const RECEIPT_HEADERS: Record<EndReason, { title: string; subtitle: string; color: string }> = {
+  heat: { title: 'ARRESTED FOR CORRUPTION', subtitle: 'NATIONAL PROSECUTING AUTHORITY', color: '#ff4444' },
+  rage: { title: 'OVERTHROWN BY THE PEOPLE', subtitle: 'PUBLIC ACCOUNTABILITY COMMISSION', color: '#ff6644' },
+  collapse: { title: 'GRID DESTROYED', subtitle: 'NATIONAL ENERGY REGULATOR', color: '#ff2222' },
+  bankrupt: { title: 'BANKRUPTCY DECLARED', subtitle: 'NATIONAL TREASURY', color: '#ff8844' },
+  survived: { title: 'TERM COMPLETED', subtitle: 'OFFICE OF THE AUDITOR GENERAL', color: '#44aa66' },
+  fled: { title: 'FLED THE COUNTRY', subtitle: 'INTERPOL RED NOTICE', color: '#ffaa44' },
+};
 
 interface CorruptionReceiptScreenProps {
   game: GameState;
@@ -21,6 +30,8 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
   const score = calculateFinalScore(game);
   const title = assignTitle(game);
   const shareText = generateShareText(game, title, score.total);
+  const reason = game.gameOverReason || 'survived';
+  const header = RECEIPT_HEADERS[reason];
 
   useEffect(() => { setTimeout(() => setReveal(true), 200); }, []);
 
@@ -38,8 +49,8 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
         <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.muted, letterSpacing: '0.15em' }}>
           GAME OVER {'\u2014'} DAY {game.day}/{BALANCING.TOTAL_DAYS}
         </div>
-        <div style={{ fontFamily: tokens.font.display, fontSize: 20, color: tokens.color.red, letterSpacing: '0.04em', marginTop: 4 }}>
-          ARRESTED FOR CORRUPTION
+        <div style={{ fontFamily: tokens.font.display, fontSize: 20, color: header.color, letterSpacing: '0.04em', marginTop: 4 }}>
+          {header.title}
         </div>
       </div>
 
@@ -65,8 +76,8 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
       }}>
         <div style={{ textAlign: 'center', marginBottom: 12, paddingBottom: 10, borderBottom: `1px dashed ${tokens.color.border}` }}>
           <div style={{ fontSize: 10, color: tokens.color.dim, letterSpacing: '0.15em' }}>{'\u2550'.repeat(10)} CORRUPTION RECEIPT {'\u2550'.repeat(10)}</div>
-          <div style={{ fontSize: 8, color: tokens.color.dim, marginTop: 4 }}>NATIONAL PROSECUTING AUTHORITY</div>
-          <div style={{ fontSize: 8, color: tokens.color.dim }}>EXHIBIT A {'\u2014'} STATE vs. PLAYER</div>
+          <div style={{ fontSize: 8, color: tokens.color.dim, marginTop: 4 }}>{header.subtitle}</div>
+          <div style={{ fontSize: 8, color: tokens.color.dim }}>EXHIBIT A {'\u2014'} {reason === 'survived' ? 'AUDIT REPORT' : 'STATE vs. PLAYER'}</div>
         </div>
 
         {/* Header */}
@@ -105,8 +116,10 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
           <span style={{ fontSize: 20, color: tokens.color.goldBright, fontWeight: 800 }}>{formatMoney(totalSkim)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-          <span style={{ fontSize: 10, color: tokens.color.red }}>STATUS</span>
-          <span style={{ fontSize: 10, color: tokens.color.red, fontWeight: 700 }}>ALL ASSETS SEIZED</span>
+          <span style={{ fontSize: 10, color: header.color }}>STATUS</span>
+          <span style={{ fontSize: 10, color: header.color, fontWeight: 700 }}>
+            {reason === 'heat' ? 'ALL ASSETS SEIZED' : reason === 'fled' ? 'SUSPECT AT LARGE' : reason === 'survived' ? 'UNDER REVIEW' : 'CASE PENDING'}
+          </span>
         </div>
       </Card>
 
@@ -117,6 +130,7 @@ export function CorruptionReceiptScreen({ game, onRestart, onTitle }: Corruption
             { label: 'Grid Stability', value: score.stability, color: score.stability < 40 ? tokens.color.red : tokens.color.amber },
             { label: 'Personal Wealth', value: score.wealth, color: tokens.color.gold },
             { label: 'Public Trust', value: score.trust, color: score.trust < 30 ? tokens.color.red : tokens.color.amber },
+            { label: 'Political Capital', value: Math.round(game.influence ?? 0), color: tokens.color.purple },
           ].map((s, i) => (
             <div key={i}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>

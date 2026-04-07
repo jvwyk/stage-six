@@ -66,7 +66,7 @@ export function GameOverScreen({ game, onRestart, onTitle }: GameOverScreenProps
           {title.toUpperCase()}
         </div>
         <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.muted, marginTop: 4 }}>
-          {game.day} days {'\u2022'} {formatMoney(game.bag)} stolen {'\u2022'} {game.corruptionLog.length} deals
+          {game.day} days {'\u2022'} {formatMoney(game.bag)} stolen {'\u2022'} {game.corruptionLog.length} deals {'\u2022'} {Math.round(game.influence ?? 0)} influence
         </div>
       </Card>
 
@@ -77,6 +77,7 @@ export function GameOverScreen({ game, onRestart, onTitle }: GameOverScreenProps
             { label: 'Grid Stability', value: score.stability, color: score.stability < 40 ? tokens.color.red : tokens.color.amber },
             { label: 'Personal Wealth', value: score.wealth, color: tokens.color.gold },
             { label: 'Public Trust', value: score.trust, color: score.trust < 30 ? tokens.color.red : tokens.color.amber },
+            { label: 'Political Capital', value: Math.round(game.influence ?? 0), color: tokens.color.purple },
           ].map((s, i) => (
             <div key={i}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>

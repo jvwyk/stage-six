@@ -42,8 +42,10 @@ export function calculateFinalScore(state: GameState): ScoreBreakdown {
   const stabilityRatio = stageScore * 0.7 + demandMetRatio * 0.3;
   const stability = Math.round(stabilityRatio * 100);
 
-  // Trust score (20% weight) — lower rage = better
-  const trustRatio = Math.max(0, (BALANCING.RAGE_REVOLT_THRESHOLD - state.rage) / BALANCING.RAGE_REVOLT_THRESHOLD);
+  // Trust score (20% weight) — lower rage + higher influence = better
+  const rageRatio = Math.max(0, (BALANCING.RAGE_REVOLT_THRESHOLD - state.rage) / BALANCING.RAGE_REVOLT_THRESHOLD);
+  const influenceRatio = Math.max(0, (state.influence ?? 0) / BALANCING.INFLUENCE_MAX);
+  const trustRatio = rageRatio * 0.7 + influenceRatio * 0.3;
   const trust = Math.round(trustRatio * 100);
 
   const total = Math.round(
@@ -97,9 +99,12 @@ export function generateShareText(
     ? `R${(state.bag / 1000).toFixed(1)}B`
     : `R${state.bag}M`;
 
+  const influenceDisplay = Math.round(state.influence ?? 0);
+
   return [
     `\u26A1 STAGE 6 \u2014 Day ${state.day}/${BALANCING.TOTAL_DAYS}`,
     `\u{1F4B0} Stole: ${bagDisplay} across ${dealCount} deals`,
+    `\u{1F3DB}\uFE0F Influence: ${influenceDisplay}/${BALANCING.INFLUENCE_MAX}`,
     `\u{1F525} Title: ${title}`,
     `\u{1F4F0} ${endReasonText[state.gameOverReason!] || 'Game Over'}`,
     `\u{1F4CA} Score: ${score}/100`,
