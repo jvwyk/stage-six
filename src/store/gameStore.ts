@@ -24,6 +24,7 @@ interface GameStore {
   cleanDeal: (opportunityId: string) => void;
   skipDeal: (opportunityId: string) => void;
   setStage: (stage: number) => void;
+  setPlantMode: (plantId: string, mode: import('../data/types').PlantOperatingMode) => void;
   activateDiesel: (plantId: string) => void;
   scheduleMaintenance: (plantId: string) => void;
   makeEventChoice: (eventId: string, choiceIndex: number) => void;
@@ -126,6 +127,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         stageSet: stage,
       },
     };
+    saveCurrentRun(updated);
+    set({ game: updated });
+  },
+
+  setPlantMode: (plantId, mode) => {
+    const { game } = get();
+    if (!game) return;
+    const idx = game.plants.findIndex((p) => p.id === plantId);
+    if (idx < 0) return;
+    const plant = game.plants[idx];
+    if (plant.status !== 'online' && plant.status !== 'derated') return;
+
+    const updatedPlants = [...game.plants];
+    updatedPlants[idx] = { ...plant, operatingMode: mode };
+    const updated: GameState = { ...game, plants: updatedPlants };
     saveCurrentRun(updated);
     set({ game: updated });
   },

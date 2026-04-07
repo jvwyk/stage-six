@@ -2,6 +2,7 @@
 
 export type PlantType = 'coal' | 'nuclear' | 'diesel' | 'renewable' | 'import';
 export type PlantStatus = 'online' | 'derated' | 'maintenance' | 'forced_outage' | 'standby' | 'starting';
+export type PlantOperatingMode = 'idle' | 'normal' | 'push_hard' | 'run_hot';
 
 export interface PlantDefinition {
   id: string;
@@ -29,6 +30,7 @@ export interface PlantState {
   daysUntilRepair: number;
   fuelCostPerDay: number;
   daysSinceLastMaintenance: number;
+  operatingMode: PlantOperatingMode;
 }
 
 // ── Region Types ──
@@ -86,6 +88,12 @@ export interface OpportunityDefinition {
   tag: string;
   category: OpportunityCategory;
   riskLevel: RiskLevel;
+  // Tender system (new)
+  baseCost: number;               // Honest cost to grid budget
+  maxInflation: number;           // Max markup multiplier (1.0 = no inflation, 2.0 = 100%)
+  heatPerInflation: number;       // Heat added per 25% inflation step
+  failureDebtPerInflation: number; // Extra failure debt per 25% inflation
+  // Legacy fields (kept for backward compat, derived from baseCost)
   skimRange: [number, number];
   heatCost: number;
   budgetCost: number;
@@ -97,6 +105,15 @@ export interface OpportunityDefinition {
   minDay: number;
   weight: number;
   tier: 1 | 2 | 3 | 4;
+  canDelay: boolean;
+}
+
+export type TenderAction = 'clean' | 'inflate' | 'delay' | 'skip';
+
+export interface TenderChoice {
+  tenderId: string;
+  action: TenderAction;
+  inflationLevel: number;         // 0 for clean, 0.25/0.50/0.75/1.0 for inflate
 }
 
 export interface Opportunity extends OpportunityDefinition {
@@ -198,6 +215,7 @@ export interface DayReport {
 // ── Player Actions ──
 
 export interface PlayerActions {
+  tenders: TenderChoice[];
   deals: Array<{
     opportunityId: string;
     choice: 'take' | 'clean' | 'skip';

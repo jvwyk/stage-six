@@ -63,6 +63,10 @@ export function loadCurrentRun(): GameState | null {
     dieselFuelDays: state.dieselFuelDays ?? 0,
     emergencyImportMW: state.emergencyImportMW ?? 0,
     transactionLog: state.transactionLog ?? [],
+    // Ensure plants have operatingMode
+    plants: (state.plants || []).map((p: any) => ({ ...p, operatingMode: p.operatingMode ?? 'normal' })),
+    // Ensure playerActions has tenders
+    playerActions: { ...state.playerActions, tenders: state.playerActions?.tenders ?? [] },
     auditRisk: state.auditRisk ?? 0,
     corruptionScore: state.corruptionScore ?? 0,
   };

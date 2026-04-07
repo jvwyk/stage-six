@@ -27,6 +27,7 @@ interface DashboardScreenProps {
   onIncreaseTariff: () => void;
   onReduceTariff: () => void;
   onSellDieselFuel: () => void;
+  onSetPlantMode: (plantId: string, mode: import('../data/types').PlantOperatingMode) => void;
   onRequestBailout: () => void;
   onEmergencyLevy: () => void;
   onMenu: () => void;
@@ -45,9 +46,10 @@ const statusLabels: Record<string, string> = {
 export function DashboardScreen({
   game, onDealClick, onEndDay, onStageChange, onActivateDiesel, onScheduleMaintenance,
   onBuyDieselFuel, onBuyEmergencyImport, onIncreaseTariff, onReduceTariff, onSellDieselFuel,
-  onRequestBailout, onEmergencyLevy, onMenu, hasUnresolvedEvents,
+  onSetPlantMode, onRequestBailout, onEmergencyLevy, onMenu, hasUnresolvedEvents,
 }: DashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1); // Default to GRID tab
+  const [expandedPlant, setExpandedPlant] = useState<string | null>(null);
 
   const totalSupply = getAvailableCapacity(game.plants) + game.emergencyImportMW;
   const totalDemand = game.regions.reduce((sum, r) => sum + r.baseDemand, 0);
@@ -95,7 +97,7 @@ export function DashboardScreen({
         lastSkim={lastSkim} heat={game.heat} rage={game.rage} budgetDelta={budgetDelta}
         eventCount={game.activeEvents.length} />
 
-      <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} onMenuClick={onMenu} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -182,14 +184,14 @@ export function DashboardScreen({
               )}
 
               {/* Stage Selector - wraps on narrow screens */}
-              <div style={{ display: 'flex', gap: 3, marginTop: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 2, marginTop: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {Array.from({ length: 9 }, (_, i) => {
                   const isDisabled = i < minimumStage;
                   const isActive = i === game.currentStage;
                   const isRecommended = i === recommendedStage;
                   return (
                     <button key={`s-${i}`} onClick={() => !isDisabled && onStageChange(i)} style={{
-                      minWidth: 34, minHeight: 44,
+                      flex: '1 0 30px', maxWidth: 38, minHeight: 44,
                       background: isActive ? (i >= 6 ? tokens.color.red : i >= 4 ? tokens.color.amber : tokens.color.green) : tokens.color.raised,
                       color: isDisabled ? `${tokens.color.dim}40` : isActive ? tokens.color.bg : tokens.color.dim,
                       border: `1px solid ${isActive ? 'transparent' : isRecommended ? `${tokens.color.amber}50` : tokens.color.border}`,
@@ -215,30 +217,93 @@ export function DashboardScreen({
                   const color = statusColors[p.status] || tokens.color.muted;
                   const canMaintain = p.status === 'online' || p.status === 'derated';
                   const canActivate = p.type === 'diesel' && p.status === 'standby';
+                  const canSetMode = p.status === 'online' || p.status === 'derated';
+                  const isExpanded = expandedPlant === p.id;
+                  const modes: Array<{ key: import('../data/types').PlantOperatingMode; label: string; desc: string; color: string }> = [
+                    { key: 'idle', label: 'IDLE', desc: '50% output, no wear', color: tokens.color.muted },
+                    { key: 'normal', label: 'NORMAL', desc: '100% output', color: tokens.color.green },
+                    { key: 'push_hard', label: 'PUSH', desc: '120%, 3× wear', color: tokens.color.amber },
+                    { key: 'run_hot', label: 'HOT', desc: '140%, 6× wear', color: tokens.color.red },
+                  ];
                   return (
-                    <div key={p.id} style={{ padding: '10px 12px', background: tokens.color.raised, borderRadius: 8, border: `1px solid ${tokens.color.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</span>
-                          <StatusPill color={color}>{statusLabels[p.status]}</StatusPill>
-                          {p.status === 'starting' && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.cyan }}>online tomorrow</span>}
-                          {p.maintenanceDaysLeft > 0 && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.blue }}>{p.maintenanceDaysLeft}d</span>}
-                          {p.daysUntilRepair > 0 && p.status !== 'starting' && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.red }}>{p.daysUntilRepair}d repair</span>}
+                    <div key={p.id} style={{ background: tokens.color.raised, borderRadius: 8, border: `1px solid ${isExpanded ? tokens.color.gold + '30' : tokens.color.border}`, overflow: 'hidden' }}>
+                      {/* Plant header row — tap to expand */}
+                      <div onClick={() => setExpandedPlant(isExpanded ? null : p.id)} style={{
+                        padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</span>
+                            <StatusPill color={color}>{statusLabels[p.status]}</StatusPill>
+                            {canSetMode && p.operatingMode !== 'normal' && (
+                              <StatusPill color={p.operatingMode === 'run_hot' ? tokens.color.red : p.operatingMode === 'push_hard' ? tokens.color.amber : tokens.color.muted}>
+                                {p.operatingMode === 'run_hot' ? 'HOT' : p.operatingMode === 'push_hard' ? 'PUSH' : 'IDLE'}
+                              </StatusPill>
+                            )}
+                            {p.status === 'starting' && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.cyan }}>online tomorrow</span>}
+                            {p.maintenanceDaysLeft > 0 && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.blue }}>{p.maintenanceDaysLeft}d</span>}
+                            {p.daysUntilRepair > 0 && p.status !== 'starting' && <span style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.red }}>{p.daysUntilRepair}d</span>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <MeterBar value={outputPct} color={color} height={3} />
+                            <span style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, minWidth: 55, textAlign: 'right' }}>{formatMW(p.currentOutput)}</span>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <MeterBar value={outputPct} color={color} height={3} />
-                          <span style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.dim, minWidth: 55, textAlign: 'right' }}>{formatMW(p.currentOutput)}</span>
-                        </div>
+                        <span style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim }}>{isExpanded ? '\u25B2' : '\u25BC'}</span>
                       </div>
-                      {canMaintain && (
-                        <button onClick={() => onScheduleMaintenance(p.id)} style={{ padding: '6px 10px', background: tokens.color.surface, border: `1px solid ${tokens.color.blue}30`, borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.blue, fontWeight: 600, minHeight: 44, whiteSpace: 'nowrap' }}>
-                          {'\u{1F527}'} Maintain
-                        </button>
-                      )}
-                      {canActivate && (
-                        <button onClick={() => onActivateDiesel(p.id)} style={{ padding: '6px 10px', background: tokens.color.surface, border: `1px solid ${tokens.color.purple}30`, borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.purple, fontWeight: 600, minHeight: 44, whiteSpace: 'nowrap' }}>
-                          {'\u26FD'} Start
-                        </button>
+
+                      {/* Expanded panel */}
+                      {isExpanded && (
+                        <div style={{ padding: '8px 12px 12px', borderTop: `1px solid ${tokens.color.border}` }}>
+                          {/* Stats row */}
+                          <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontFamily: tokens.font.mono, fontSize: 9 }}>
+                            <span style={{ color: tokens.color.muted }}>Reliability: <span style={{ color: p.reliability > 70 ? tokens.color.green : p.reliability > 50 ? tokens.color.amber : tokens.color.red, fontWeight: 700 }}>{p.reliability}%</span></span>
+                            <span style={{ color: tokens.color.muted }}>Wear: <span style={{ color: p.failureDebt > 60 ? tokens.color.red : p.failureDebt > 30 ? tokens.color.amber : tokens.color.green, fontWeight: 700 }}>{Math.round(p.failureDebt)}%</span></span>
+                            <span style={{ color: tokens.color.muted }}>Fuel: <span style={{ fontWeight: 700 }}>{formatMoney(p.fuelCostPerDay)}/d</span></span>
+                          </div>
+
+                          {/* Operating mode buttons */}
+                          {canSetMode && (
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontFamily: tokens.font.mono, fontSize: 8, color: tokens.color.dim, marginBottom: 4, letterSpacing: '0.1em' }}>OPERATING MODE</div>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                {modes.map((m) => (
+                                  <button key={m.key} onClick={(e) => { e.stopPropagation(); onSetPlantMode(p.id, m.key); }} style={{
+                                    flex: 1, padding: '6px 4px', minHeight: 44,
+                                    background: p.operatingMode === m.key ? `${m.color}20` : tokens.color.surface,
+                                    border: `1px solid ${p.operatingMode === m.key ? m.color : tokens.color.border}`,
+                                    borderRadius: 6, cursor: 'pointer', textAlign: 'center',
+                                  }}>
+                                    <div style={{ fontFamily: tokens.font.mono, fontSize: 9, fontWeight: 700, color: p.operatingMode === m.key ? m.color : tokens.color.dim }}>{m.label}</div>
+                                    <div style={{ fontFamily: tokens.font.mono, fontSize: 7, color: tokens.color.dim, marginTop: 1 }}>{m.desc}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {canMaintain && (
+                              <button onClick={(e) => { e.stopPropagation(); onScheduleMaintenance(p.id); }} style={{
+                                flex: 1, padding: '8px', background: tokens.color.surface, border: `1px solid ${tokens.color.blue}30`,
+                                borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.blue,
+                                fontWeight: 600, minHeight: 44,
+                              }}>
+                                {'\u{1F527}'} Maintain (R80-200M)
+                              </button>
+                            )}
+                            {canActivate && (
+                              <button onClick={(e) => { e.stopPropagation(); onActivateDiesel(p.id); }} style={{
+                                flex: 1, padding: '8px', background: tokens.color.surface, border: `1px solid ${tokens.color.purple}30`,
+                                borderRadius: 6, cursor: 'pointer', fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.purple,
+                                fontWeight: 600, minHeight: 44,
+                              }}>
+                                {'\u26FD'} Cold Start (R{BALANCING.DIESEL_ACTIVATION_COST}M)
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
@@ -356,15 +421,6 @@ export function DashboardScreen({
             )}
           </>
         )}
-
-        {/* Menu */}
-        <button onClick={onMenu} style={{
-          padding: 12, background: tokens.color.raised, border: `1px solid ${tokens.color.border}`,
-          borderRadius: 8, cursor: 'pointer', textAlign: 'center',
-          fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim,
-        }}>
-          {'\u2630'} Menu {'\u2014'} Save & Options
-        </button>
 
         <div style={{ height: 90 }} />
       </div>

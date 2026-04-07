@@ -30,6 +30,7 @@ function App() {
   const setStage = useGameStore((s) => s.setStage);
   const activateDiesel = useGameStore((s) => s.activateDiesel);
   const scheduleMaintenance = useGameStore((s) => s.scheduleMaintenance);
+  const setPlantMode = useGameStore((s) => s.setPlantMode);
   const makeEventChoice = useGameStore((s) => s.makeEventChoice);
   const endDay = useGameStore((s) => s.endDay);
   const continueTomorrow = useGameStore((s) => s.continueTomorrow);
@@ -89,6 +90,7 @@ function App() {
               onIncreaseTariff={increaseTariff}
               onReduceTariff={reduceTariff}
               onSellDieselFuel={sellDieselFuel}
+              onSetPlantMode={setPlantMode}
               onRequestBailout={requestBailout}
               onEmergencyLevy={requestEmergencyLevy}
               onMenu={() => setShowMenu(true)}

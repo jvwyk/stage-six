@@ -1,6 +1,7 @@
 import type { OpportunityDefinition } from './types';
 
-export const OPPORTUNITIES: OpportunityDefinition[] = [
+// Base opportunity data (without tender fields — added via transform below)
+const RAW_OPPORTUNITIES: Omit<OpportunityDefinition, 'baseCost' | 'maxInflation' | 'heatPerInflation' | 'failureDebtPerInflation' | 'canDelay'>[] = [
   // ── Tier 1: Common (days 1-30) ──
   {
     id: 'diesel_markup',
@@ -409,3 +410,13 @@ export const OPPORTUNITIES: OpportunityDefinition[] = [
     tier: 4,
   },
 ];
+
+// Add tender system fields (baseCost derived from budgetCost, inflation from skim range)
+export const OPPORTUNITIES: OpportunityDefinition[] = RAW_OPPORTUNITIES.map((op) => ({
+  ...op,
+  baseCost: op.budgetCost || Math.round((op.skimRange[0] + op.skimRange[1]) / 2),
+  maxInflation: 2.0,
+  heatPerInflation: Math.round(op.heatCost / 4) || 2,
+  failureDebtPerInflation: op.category === 'tender' || op.category === 'markup' ? 5 : 0,
+  canDelay: op.tier <= 2,
+}));

@@ -31,6 +31,7 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     daysUntilRepair: 0,
     fuelCostPerDay: def.fuelCostPerDay,
     daysSinceLastMaintenance: 0,
+    operatingMode: 'normal',
   }));
 
   const regions: RegionState[] = REGIONS.map((def) => ({
@@ -95,6 +96,7 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
 
 export function createEmptyActions(): PlayerActions {
   return {
+    tenders: [],
     deals: [],
     stageSet: -1,
     dieselActivated: [],

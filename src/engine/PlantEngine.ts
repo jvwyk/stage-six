@@ -1,4 +1,4 @@
-import type { PlantState } from '../data/types';
+import type { PlantState, PlantOperatingMode } from '../data/types';
 import { BALANCING } from '../data/balancing';
 import type { SeededRandom } from './RandomEngine';
 
@@ -150,15 +150,22 @@ export function tickFailureDebt(plants: PlantState[]): PlantState[] {
 
     let debtIncrease = 0;
 
+    // Get operating mode multiplier
+    const modeMult = getModeDebtMultiplier(plant.operatingMode);
+
     // Daily wear if not recently maintained
     if (plant.daysSinceLastMaintenance >= BALANCING.DAYS_WITHOUT_MAINTENANCE_THRESHOLD) {
       debtIncrease += BALANCING.FAILURE_DEBT_DAILY_INCREASE;
     }
 
-    // Overload penalty
-    if (plant.currentOutput > plant.maxCapacity * BALANCING.PLANT_OVERLOAD_THRESHOLD) {
+    // Overload penalty (automatic when mode pushes beyond capacity)
+    const modeOutput = getModeOutputMultiplier(plant.operatingMode);
+    if (modeOutput > BALANCING.PLANT_OVERLOAD_THRESHOLD) {
       debtIncrease += BALANCING.FAILURE_DEBT_OVERLOAD_INCREASE;
     }
+
+    // Apply mode multiplier to all debt accumulation
+    debtIncrease = Math.round(debtIncrease * modeMult);
 
     // Don't increment maintenance counter on the day maintenance completes
     const newDaysSince = plant.daysSinceLastMaintenance === 0
@@ -187,14 +194,56 @@ export function activateDiesel(plant: PlantState): PlantState {
 }
 
 /**
- * Get total available capacity from all online/derated plants.
+ * Get mode output multiplier.
+ */
+export function getModeOutputMultiplier(mode: PlantOperatingMode): number {
+  switch (mode) {
+    case 'idle': return BALANCING.PLANT_MODE_IDLE_OUTPUT;
+    case 'push_hard': return BALANCING.PLANT_MODE_PUSH_OUTPUT;
+    case 'run_hot': return BALANCING.PLANT_MODE_HOT_OUTPUT;
+    default: return BALANCING.PLANT_MODE_NORMAL_OUTPUT;
+  }
+}
+
+/**
+ * Get mode fuel cost multiplier.
+ */
+export function getModeFuelMultiplier(mode: PlantOperatingMode): number {
+  switch (mode) {
+    case 'idle': return BALANCING.PLANT_MODE_IDLE_FUEL;
+    case 'push_hard': return BALANCING.PLANT_MODE_PUSH_FUEL;
+    case 'run_hot': return BALANCING.PLANT_MODE_HOT_FUEL;
+    default: return BALANCING.PLANT_MODE_NORMAL_FUEL;
+  }
+}
+
+/**
+ * Get mode failure debt multiplier.
+ */
+export function getModeDebtMultiplier(mode: PlantOperatingMode): number {
+  switch (mode) {
+    case 'idle': return BALANCING.PLANT_MODE_IDLE_DEBT_MULT;
+    case 'push_hard': return BALANCING.PLANT_MODE_PUSH_DEBT_MULT;
+    case 'run_hot': return BALANCING.PLANT_MODE_HOT_DEBT_MULT;
+    default: return BALANCING.PLANT_MODE_NORMAL_DEBT_MULT;
+  }
+}
+
+/**
+ * Get effective output for a plant based on its status and operating mode.
+ */
+export function getPlantEffectiveOutput(plant: PlantState): number {
+  if (plant.status !== 'online' && plant.status !== 'derated') return 0;
+  const modeMultiplier = getModeOutputMultiplier(plant.operatingMode);
+  return Math.round(plant.maxCapacity * modeMultiplier * (plant.status === 'derated' ? plant.currentOutput / plant.maxCapacity : 1));
+}
+
+/**
+ * Get total available capacity from all online/derated plants (mode-aware).
  */
 export function getAvailableCapacity(plants: PlantState[]): number {
   return plants.reduce((total, plant) => {
-    if (plant.status === 'online' || plant.status === 'derated') {
-      return total + plant.currentOutput;
-    }
-    return total;
+    return total + getPlantEffectiveOutput(plant);
   }, 0);
 }
 

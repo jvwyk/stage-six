@@ -2,6 +2,7 @@ import type { RegionState, PlantState } from '../data/types';
 import { BALANCING } from '../data/balancing';
 import { getRageRevenuePenalty } from './RageEngine';
 import { getHeatBudgetPenalty } from './HeatEngine';
+import { getModeFuelMultiplier } from './PlantEngine';
 
 export interface EconomyResult {
   revenue: number;
@@ -44,7 +45,8 @@ export function calculateCosts(plants: PlantState[], additionalCosts: number = 0
 
   for (const plant of plants) {
     if (plant.status === 'online' || plant.status === 'derated') {
-      costs += plant.fuelCostPerDay;
+      const fuelMult = getModeFuelMultiplier(plant.operatingMode);
+      costs += Math.round(plant.fuelCostPerDay * fuelMult);
     }
   }
 
