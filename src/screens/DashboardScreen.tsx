@@ -114,13 +114,16 @@ export function DashboardScreen({
                 <div style={{
                   fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim, marginBottom: 10,
                 }}>
-                  Risk it for the biscuit {'\u2014'} or play it clean for R0.
+                  Set the inflation level {'\u2014'} or approve clean for R0.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {pendingOpportunities.map((op, i) => (
+                  {pendingOpportunities.map((op, i) => {
+                    const maxPct = Math.round((op.maxInflation - 1) * 100);
+                    const maxCut = Math.round(op.baseCost * (op.maxInflation - 1));
+                    return (
                     <div key={op.id} onClick={() => onDealClick(op)} style={{
                       padding: 14, background: tokens.color.raised, borderRadius: 10,
-                      border: `1px solid ${(riskColors[op.riskLevel] || tokens.color.border)}20`,
+                      border: `1px solid ${op.delayCount > 0 ? tokens.color.amber : (riskColors[op.riskLevel] || tokens.color.border)}20`,
                       cursor: 'pointer', ...staggeredFadeUp(i),
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -128,12 +131,16 @@ export function DashboardScreen({
                           <span style={{ fontSize: 22 }}>{op.icon}</span>
                           <div>
                             <div style={{ fontSize: 14, fontWeight: 600 }}>{op.title}</div>
-                            <StatusPill color={riskColors[op.riskLevel]}>{op.riskLevel} risk</StatusPill>
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <StatusPill color={riskColors[op.riskLevel]}>{op.riskLevel} risk</StatusPill>
+                              {op.delayCount > 0 && <StatusPill color={tokens.color.amber}>DELAYED</StatusPill>}
+                            </div>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontFamily: tokens.font.serif, fontSize: 20, fontWeight: 900, color: tokens.color.goldBright }}>+{formatMoney(op.skimAmount)}</div>
-                          <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber }}>+{op.heatCost} heat</div>
+                          <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim }}>Base R{op.baseCost}M</div>
+                          <div style={{ fontFamily: tokens.font.serif, fontSize: 18, fontWeight: 900, color: tokens.color.goldBright }}>up to +{formatMoney(maxCut)}</div>
+                          <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber }}>max {maxPct}% inflation</div>
                         </div>
                       </div>
                       <p style={{ fontFamily: tokens.font.body, fontSize: 12, color: tokens.color.muted, lineHeight: 1.5, marginBottom: 6 }}>{op.description}</p>
@@ -141,7 +148,8 @@ export function DashboardScreen({
                         Grid: {op.gridEffectLabel}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : (

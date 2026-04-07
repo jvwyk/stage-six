@@ -64,6 +64,7 @@ export function loadCurrentRun(): GameState | null {
     emergencyImportMW: state.emergencyImportMW ?? 0,
     diversionMW: state.diversionMW ?? 0,
     influence: state.influence ?? 20,
+    delayedTenders: state.delayedTenders ?? [],
     transactionLog: state.transactionLog ?? [],
     // Ensure plants have operatingMode
     plants: (state.plants || []).map((p: any) => ({ ...p, operatingMode: p.operatingMode ?? 'normal' })),

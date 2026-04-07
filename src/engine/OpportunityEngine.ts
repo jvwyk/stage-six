@@ -153,6 +153,122 @@ export function applyCleanDeal(
 }
 
 /**
+ * Apply a tender choice with inflation. Returns all effects.
+ * inflationLevel: 0 = clean, 0.25/0.50/0.75/1.0 = increasingly corrupt
+ */
+export function applyTenderChoice(
+  opportunity: Opportunity,
+  inflationLevel: number,
+  random: SeededRandom,
+): {
+  bagGain: number;
+  heatGain: number;
+  budgetCost: number;
+  rageEffect: number;
+  gridEffect: GridEffect;
+  failureDebtAdded: number;
+  failed: boolean;
+  failMessage: string;
+  corruptionEntry: CorruptionEntry | null;
+} {
+  const isClean = inflationLevel <= 0;
+
+  // Calculate costs and gains based on inflation
+  const inflationMultiplier = 1 + inflationLevel;
+  const gridPays = Math.round(opportunity.baseCost * inflationMultiplier);
+  const bagGain = isClean ? 0 : Math.round(opportunity.baseCost * inflationLevel);
+  const steps = Math.round(inflationLevel / 0.25); // 0,1,2,3,4
+  const heatGain = isClean ? 0 : opportunity.heatPerInflation * steps;
+
+  // Grid effect degradation: higher inflation = worse quality work
+  const degradationIndex = Math.min(steps, BALANCING.TENDER_GRID_EFFECT_DEGRADATION.length - 1);
+  const degradation = BALANCING.TENDER_GRID_EFFECT_DEGRADATION[degradationIndex];
+  const degradedGridEffect: GridEffect = {
+    ...opportunity.gridEffect,
+    value: Math.round(opportunity.gridEffect.value * degradation),
+  };
+
+  // Deal failure check (only on corrupt deals)
+  let failed = false;
+  let failMessage = '';
+  if (!isClean && opportunity.failChance > 0 && random.chance(opportunity.failChance)) {
+    failed = true;
+    failMessage = opportunity.failConsequence;
+  }
+
+  // Rage: clean deals get only positive rage effects, corrupt deals get full rage
+  const rageEffect = isClean ? Math.min(0, opportunity.rageEffect) : opportunity.rageEffect;
+
+  const corruptionEntry: CorruptionEntry | null = isClean ? null : {
+    day: 0,
+    action: opportunity.title,
+    skimAmount: bagGain,
+    heatAdded: heatGain,
+    category: opportunity.category,
+    inflationLevel,
+  };
+
+  const failureDebtAdded = isClean ? 0 : opportunity.failureDebtPerInflation * steps;
+
+  return {
+    bagGain,
+    heatGain,
+    budgetCost: gridPays,
+    rageEffect,
+    gridEffect: degradedGridEffect,
+    failureDebtAdded,
+    failed,
+    failMessage,
+    corruptionEntry,
+  };
+}
+
+/**
+ * Apply a tender delay. Returns updated opportunity with worsen roll.
+ */
+export function applyTenderDelay(
+  opportunity: Opportunity,
+  random: SeededRandom,
+): { delayed: Opportunity; worsened: boolean } {
+  let baseCost = opportunity.baseCost;
+  let worsened = false;
+
+  if (random.chance(BALANCING.TENDER_DELAY_WORSEN_CHANCE)) {
+    baseCost = Math.round(baseCost * (1 + BALANCING.TENDER_DELAY_WORSEN_AMOUNT));
+    worsened = true;
+  }
+
+  return {
+    delayed: {
+      ...opportunity,
+      baseCost,
+      delayCount: opportunity.delayCount + 1,
+    },
+    worsened,
+  };
+}
+
+/**
+ * Merge delayed tenders from previous day into today's opportunities.
+ */
+export function mergeDelayedTenders(
+  todaysOpportunities: Opportunity[],
+  delayedTenders: Opportunity[],
+): Opportunity[] {
+  // Delayed tenders appear first
+  return [...delayedTenders, ...todaysOpportunities];
+}
+
+/**
+ * Get the available inflation steps for an opportunity based on its maxInflation.
+ */
+export function getAvailableInflationSteps(opportunity: Opportunity): number[] {
+  return BALANCING.TENDER_INFLATION_STEPS.filter(
+    (step) => 1 + step <= opportunity.maxInflation + 0.001
+  );
+}
+
+/**
  * Get the IDs of recently used opportunities for cooldown tracking.
  */
 export function updateRecentOpportunities(

@@ -280,6 +280,7 @@ export interface GameState {
 
   activeEvents: ActiveEvent[];
   todaysOpportunities: Opportunity[];
+  delayedTenders: Opportunity[];
   recentOpportunityIds: string[];
 
   corruptionLog: CorruptionEntry[];

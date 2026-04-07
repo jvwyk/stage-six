@@ -74,6 +74,7 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
     regions,
     activeEvents: [],
     todaysOpportunities: opportunities,
+    delayedTenders: [],
     recentOpportunityIds: opportunities.map((o) => o.id),
     corruptionLog: [],
     decisionsLog: [],
@@ -229,8 +230,61 @@ export function resolveDay(state: GameState): GameState {
     }
   }
 
-  // 7. Process deal outcomes and apply grid effects
+  // 7. Process tender choices (inflation-aware system)
+  const processedTenderIds = new Set<string>();
+  for (const tender of s.playerActions.tenders) {
+    const opp = s.todaysOpportunities.find((o) => o.id === tender.tenderId);
+    if (!opp || processedTenderIds.has(tender.tenderId)) continue;
+    processedTenderIds.add(tender.tenderId);
+
+    if (tender.action === 'skip') continue;
+
+    if (tender.action === 'delay') {
+      // Delayed tenders handled via delayedTenders state, rage added in store
+      continue;
+    }
+
+    // 'clean' or 'inflate'
+    const result = OpportunityEngine.applyTenderChoice(opp, tender.inflationLevel, random);
+    daySkimmed += result.bagGain;
+    dayHeatAdded += result.heatGain;
+    dayBudgetCosts += result.budgetCost;
+    dayRageFromActions += result.rageEffect;
+    s.plants = applyGridEffect(s.plants, result.gridEffect, random);
+
+    // Apply failure debt from inflation (shoddy work)
+    if (result.failureDebtAdded > 0 && result.gridEffect.target) {
+      const targetId = result.gridEffect.target === 'random'
+        ? random.pick(s.plants.filter((p) => p.status === 'online' || p.status === 'derated'))?.id
+        : result.gridEffect.target;
+      if (targetId) {
+        s.plants = s.plants.map((p) =>
+          p.id === targetId ? { ...p, failureDebt: p.failureDebt + result.failureDebtAdded } : p
+        );
+      }
+    }
+
+    if (result.bagGain > 0) {
+      tookCorruptAction = true;
+      const pct = Math.round(tender.inflationLevel * 100);
+      dayEvents.push(`Approved ${opp.title} at ${pct}% inflation — pocketed R${result.bagGain}M`);
+    } else {
+      dayEvents.push(`Approved ${opp.title} as a clean contract`);
+    }
+
+    if (result.corruptionEntry) {
+      result.corruptionEntry.day = s.day;
+      s.corruptionLog = [...s.corruptionLog, result.corruptionEntry];
+    }
+
+    if (result.failed) {
+      dayEvents.push(`Deal went wrong: ${result.failMessage}`);
+    }
+  }
+
+  // 7b. Fall back to legacy deal processing for any unprocessed deals
   for (const deal of s.playerActions.deals) {
+    if (processedTenderIds.has(deal.opportunityId)) continue;
     const opp = s.todaysOpportunities.find((o) => o.id === deal.opportunityId);
     if (!opp) continue;
 
@@ -548,7 +602,8 @@ export function advanceToNextDay(state: GameState): GameState {
     day: nextDay,
     phase: 'opportunities',
     currentStage: newStage,
-    todaysOpportunities: opportunities,
+    todaysOpportunities: OpportunityEngine.mergeDelayedTenders(opportunities, state.delayedTenders),
+    delayedTenders: [],
     recentOpportunityIds: OpportunityEngine.updateRecentOpportunities(
       state.recentOpportunityIds,
       opportunities.map((o) => o.id),

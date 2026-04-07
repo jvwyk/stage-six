@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { GameState, Screen } from '../data/types';
 import * as GameEngine from '../engine/GameEngine';
 import * as EventEngine from '../engine/EventEngine';
+import * as OpportunityEngine from '../engine/OpportunityEngine';
+import { SeededRandom } from '../engine/RandomEngine';
 import { buildCompletedRun } from '../engine/ScoringEngine';
 import { BALANCING } from '../data/balancing';
 import { saveCurrentRun, clearCurrentRun, loadCurrentRun } from '../utils/storage';
@@ -426,16 +428,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { game } = get();
     if (!game) return;
 
+    if (action === 'delay') {
+      // Handle delay: move to delayed list, add rage
+      const opp = game.todaysOpportunities.find((o) => o.id === tenderId);
+      if (!opp || opp.delayCount >= BALANCING.TENDER_DELAY_MAX) return;
+
+      const { delayed, worsened } = OpportunityEngine.applyTenderDelay(opp, new SeededRandom(game.day * 1000 + game.delayedTenders.length));
+
+      const updated: GameState = {
+        ...game,
+        rage: Math.min(BALANCING.RAGE_REVOLT_THRESHOLD, game.rage + BALANCING.TENDER_DELAY_RAGE_COST),
+        delayedTenders: [...game.delayedTenders, delayed],
+        playerActions: {
+          ...game.playerActions,
+          tenders: [...game.playerActions.tenders, { tenderId, action, inflationLevel: 0 }],
+        },
+        transactionLog: [...game.transactionLog, {
+          label: `Delayed ${opp.title}${worsened ? ' (cost increased!)' : ''}`,
+          amount: 0,
+        }],
+      };
+      saveCurrentRun(updated);
+      set({ game: updated });
+      return;
+    }
+
     const updated: GameState = {
       ...game,
       playerActions: {
         ...game.playerActions,
         tenders: [...game.playerActions.tenders, { tenderId, action, inflationLevel }],
-        // Also add to legacy deals for backward compat with engine processing
-        deals: [...game.playerActions.deals, {
-          opportunityId: tenderId,
-          choice: action === 'clean' ? 'clean' as const : action === 'skip' ? 'skip' as const : 'take' as const,
-        }],
       },
     };
     saveCurrentRun(updated);

@@ -11,7 +11,7 @@ import { GameOverScreen } from './screens/GameOverScreen';
 import { PlantDetailScreen } from './screens/PlantDetailScreen';
 import { RunHistoryScreen } from './screens/RunHistoryScreen';
 import { HowToScreen } from './screens/HowToScreen';
-import { DealModal } from './components/game/DealModal';
+import { TenderModal } from './components/game/TenderModal';
 import { EventModal } from './components/game/EventModal';
 import { PauseMenu } from './components/screens/PauseMenu';
 import { BALANCING } from './data/balancing';
@@ -24,9 +24,7 @@ function App() {
   const setScreen = useGameStore((s) => s.setScreen);
   const newGame = useGameStore((s) => s.newGame);
   const resumeGame = useGameStore((s) => s.resumeGame);
-  const takeDeal = useGameStore((s) => s.takeDeal);
-  const cleanDeal = useGameStore((s) => s.cleanDeal);
-  const skipDeal = useGameStore((s) => s.skipDeal);
+  const processTender = useGameStore((s) => s.processTender);
   const setStage = useGameStore((s) => s.setStage);
   const activateDiesel = useGameStore((s) => s.activateDiesel);
   const scheduleMaintenance = useGameStore((s) => s.scheduleMaintenance);
@@ -105,12 +103,12 @@ function App() {
               hasUnresolvedEvents={unresolvedEvents.length > 0}
             />
           {selectedDeal && (
-            <DealModal
+            <TenderModal
               opportunity={selectedDeal}
               currentHeat={game.heat}
-              onTake={() => { takeDeal(selectedDeal.id); setSelectedDeal(null); }}
-              onClean={() => { cleanDeal(selectedDeal.id); setSelectedDeal(null); }}
-              onSkip={() => { skipDeal(selectedDeal.id); setSelectedDeal(null); }}
+              onApprove={(level) => { processTender(selectedDeal.id, level > 0 ? 'inflate' : 'clean', level); setSelectedDeal(null); }}
+              onDelay={() => { processTender(selectedDeal.id, 'delay', 0); setSelectedDeal(null); }}
+              onSkip={() => { processTender(selectedDeal.id, 'skip', 0); setSelectedDeal(null); }}
               onClose={() => setSelectedDeal(null)}
             />
           )}
