@@ -267,9 +267,9 @@ export function resolveDay(state: GameState): GameState {
     eventEffects.demandModifiers,
   );
 
-  // 9. Get available supply (accounting for event supply modifiers + emergency imports - diversion)
+  // 9. Get available supply (accounting for event supply modifiers + emergency imports)
   const baseSupply = PlantEngine.getAvailableCapacity(s.plants);
-  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW - s.diversionMW);
+  const totalSupply = Math.max(0, baseSupply + eventEffects.supplyModifier + s.emergencyImportMW);
 
   // 9a. Process power diversion income and detection
   if (s.diversionMW > 0) {
