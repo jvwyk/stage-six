@@ -22,7 +22,7 @@ const GUIDE_SECTIONS = [
   {
     icon: '\u{1F525}',
     title: 'Heat',
-    text: "Every corrupt deal adds heat. Under 25%? Nobody suspects. Above 80%? Hawks are circling. Above 96%? You're arrested and your bag is seized. Clean days cool your heat by 5 points.",
+    text: "Every corrupt deal adds heat. Heat decays 2 points daily, or 5 on clean days. But heat can't drop more than one threshold band per day — once you're hot, cooling down takes time. Above 80%? Hawks are circling. Above 96%? You're arrested.",
     color: tokens.color.amber,
   },
   {
@@ -40,7 +40,13 @@ const GUIDE_SECTIONS = [
   {
     icon: '\u{1F4BC}',
     title: 'Deals',
-    text: "Each day brings 1-3 opportunities. Take the deal (skim money, add heat), award it clean (no profit, better grid), or skip entirely. The biggest payouts come late — if you survive.",
+    text: "Each day brings procurement tenders. Set the inflation level — clean (no skim) or inflate up to 100% for maximum kickback. Higher inflation means worse work quality, more heat, and plant wear. You can also delay tenders (but costs may rise).",
+    color: tokens.color.purple,
+  },
+  {
+    icon: '\u{1F3DB}\uFE0F',
+    title: 'Influence & Diversion',
+    text: "Earn influence by keeping the grid stable and meeting demand. Spend it to suppress rage, deflect investigations, or cover power diversions. Divert grid power to private clients for extra income — but detection means heat and rage.",
     color: tokens.color.purple,
   },
   {

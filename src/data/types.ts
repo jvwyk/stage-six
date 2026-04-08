@@ -89,7 +89,8 @@ export interface OpportunityDefinition {
   category: OpportunityCategory;
   riskLevel: RiskLevel;
   // Tender system (new)
-  baseCost: number;               // Honest cost to grid budget
+  baseCost: number;               // Honest cost to grid budget (0 for off-books deals)
+  flatSkim: number;              // Fixed skim for off-books deals (0 for normal tenders)
   maxInflation: number;           // Max markup multiplier (1.0 = no inflation, 2.0 = 100%)
   heatPerInflation: number;       // Heat added per 25% inflation step
   failureDebtPerInflation: number; // Extra failure debt per 25% inflation
@@ -117,9 +118,7 @@ export interface TenderChoice {
 }
 
 export interface Opportunity extends OpportunityDefinition {
-  skimAmount: number;
   delayCount: number;
-  dayAppeared: number;
 }
 
 // ── Event Types ──
@@ -223,10 +222,6 @@ export interface DayReport {
 
 export interface PlayerActions {
   tenders: TenderChoice[];
-  deals: Array<{
-    opportunityId: string;
-    choice: 'take' | 'clean' | 'skip';
-  }>;
   stageSet: number;
   dieselActivated: string[];
   maintenanceScheduled: string[];

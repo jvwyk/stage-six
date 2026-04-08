@@ -472,7 +472,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     if (unresolvedEvents.length > 0) return;
 
-    const resolved = GameEngine.resolveDay(game);
+    let resolved: GameState;
+    try {
+      resolved = GameEngine.resolveDay(game);
+    } catch (e) {
+      console.error('resolveDay failed:', e);
+      const errGame: GameState = {
+        ...game,
+        transactionLog: [...game.transactionLog, { label: 'ERROR: Day could not resolve. Try again.', amount: 0 }],
+      };
+      saveCurrentRun(errGame);
+      set({ game: errGame });
+      return;
+    }
+
     saveCurrentRun(resolved);
 
     if (resolved.gameOver) {

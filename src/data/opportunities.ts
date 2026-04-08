@@ -1,7 +1,7 @@
 import type { OpportunityDefinition } from './types';
 
 // Base opportunity data (without tender fields — added via transform below)
-const RAW_OPPORTUNITIES: Omit<OpportunityDefinition, 'baseCost' | 'maxInflation' | 'heatPerInflation' | 'failureDebtPerInflation' | 'canDelay'>[] = [
+const RAW_OPPORTUNITIES: Omit<OpportunityDefinition, 'baseCost' | 'flatSkim' | 'maxInflation' | 'heatPerInflation' | 'failureDebtPerInflation' | 'canDelay'>[] = [
   // ── Tier 1: Common (days 1-30) ──
   {
     id: 'diesel_markup',
@@ -428,9 +428,11 @@ function getCategoryInflation(category: string, tier: number): { maxInflation: n
 
 export const OPPORTUNITIES: OpportunityDefinition[] = RAW_OPPORTUNITIES.map((op) => {
   const inflation = getCategoryInflation(op.category, op.tier);
+  const isOffBooks = op.budgetCost === 0;
   return {
     ...op,
-    baseCost: op.budgetCost || Math.round((op.skimRange[0] + op.skimRange[1]) / 2),
+    baseCost: op.budgetCost,
+    flatSkim: isOffBooks ? Math.round((op.skimRange[0] + op.skimRange[1]) / 2) : 0,
     ...inflation,
     canDelay: op.tier <= 2,
   };

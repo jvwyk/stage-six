@@ -99,6 +99,7 @@ function App() {
               onSpendInfluence={spendInfluence}
               onRequestBailout={requestBailout}
               onEmergencyLevy={requestEmergencyLevy}
+              onPlantDetail={() => setScreen('plant_detail')}
               onMenu={() => setShowMenu(true)}
               hasUnresolvedEvents={unresolvedEvents.length > 0}
             />

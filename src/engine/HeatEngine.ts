@@ -8,6 +8,7 @@ export interface HeatResult {
   decayed: number;
   added: number;
   events: string[];
+  thresholdCrossed: 'journalist' | 'inquiry' | 'imminent' | null;
 }
 
 // Threshold bands in ascending order for band-drop limit enforcement
@@ -51,7 +52,7 @@ export function calculateDailyHeat(
   // Enforce band-drop limit: heat cannot drop more than 1 threshold band per day
   if (newHeat < state.heat) {
     const currentBand = getBandIndex(state.heat);
-    if (currentBand >= 2) {
+    if (currentBand >= 1) {
       // Minimum heat is the bottom of the band one below current
       const minHeat = HEAT_BANDS[currentBand - 1];
       newHeat = Math.max(newHeat, minHeat);
@@ -59,14 +60,18 @@ export function calculateDailyHeat(
   }
 
   // Threshold events
+  let thresholdCrossed: HeatResult['thresholdCrossed'] = null;
   if (newHeat >= BALANCING.HEAT_JOURNALIST_THRESHOLD && state.heat < BALANCING.HEAT_JOURNALIST_THRESHOLD) {
     events.push('Journalists are sniffing around');
+    thresholdCrossed = 'journalist';
   }
   if (newHeat >= BALANCING.HEAT_INQUIRY_THRESHOLD && state.heat < BALANCING.HEAT_INQUIRY_THRESHOLD) {
     events.push('Parliamentary inquiry launched');
+    thresholdCrossed = 'inquiry';
   }
   if (newHeat >= BALANCING.HEAT_IMMINENT_THRESHOLD && state.heat < BALANCING.HEAT_IMMINENT_THRESHOLD) {
     events.push('Arrest is imminent — consider fleeing');
+    thresholdCrossed = 'imminent';
   }
 
   return {
@@ -75,6 +80,7 @@ export function calculateDailyHeat(
     decayed: decay,
     added,
     events,
+    thresholdCrossed,
   };
 }
 

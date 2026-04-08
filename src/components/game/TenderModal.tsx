@@ -22,8 +22,12 @@ export function TenderModal({ opportunity, currentHeat, onApprove, onDelay, onSk
   const [selectedStep, setSelectedStep] = useState(0);
 
   const inflationMultiplier = 1 + selectedStep;
-  const gridPays = Math.round(op.baseCost * inflationMultiplier);
-  const yourCut = Math.round(op.baseCost * selectedStep);
+  const isOffBooks = op.flatSkim > 0;
+  const isLoanType = op.baseCost < 0;
+  const gridPays = isLoanType ? op.baseCost : Math.round(op.baseCost * inflationMultiplier);
+  const yourCut = isOffBooks
+    ? (selectedStep > 0 ? op.flatSkim : 0)
+    : Math.round(Math.abs(op.baseCost) * selectedStep);
   const stepIndex = Math.round(selectedStep / 0.25);
   const heatAdded = selectedStep > 0 ? op.heatPerInflation * stepIndex : 0;
   const wearAdded = selectedStep > 0 ? op.failureDebtPerInflation * stepIndex : 0;
@@ -59,7 +63,9 @@ export function TenderModal({ opportunity, currentHeat, onApprove, onDelay, onSk
         }}>{op.description}</p>
         <div style={{
           fontFamily: tokens.font.mono, fontSize: 11, color: tokens.color.dim, marginTop: 6,
-        }}>Base contract: <span style={{ color: tokens.color.text, fontWeight: 700 }}>R{op.baseCost}M</span></div>
+        }}>{isOffBooks ? 'Off-books deal' : isLoanType ? `Budget injection: +${formatMoney(Math.abs(op.baseCost))}` : `Base contract: ${formatMoney(op.baseCost)}`}
+        {isOffBooks && <span style={{ color: tokens.color.gold, fontWeight: 700 }}> — up to {formatMoney(op.flatSkim)}</span>}
+        </div>
       </div>
 
       {/* Inflation Selector */}
@@ -120,10 +126,11 @@ export function TenderModal({ opportunity, currentHeat, onApprove, onDelay, onSk
           <div style={{
             fontFamily: tokens.font.mono, fontSize: 7, letterSpacing: '0.1em', fontWeight: 700,
             color: tokens.color.muted, marginBottom: 3,
-          }}>GRID PAYS</div>
+          }}>{isLoanType ? 'GRID GAINS' : 'GRID PAYS'}</div>
           <div style={{
-            fontFamily: tokens.font.serif, fontSize: 26, fontWeight: 900, color: tokens.color.text,
-          }}>R{gridPays}M</div>
+            fontFamily: tokens.font.serif, fontSize: 26, fontWeight: 900,
+            color: isOffBooks ? tokens.color.dim : isLoanType ? tokens.color.green : tokens.color.text,
+          }}>{isOffBooks ? 'R0' : formatMoney(Math.abs(gridPays))}</div>
         </div>
       </div>
 

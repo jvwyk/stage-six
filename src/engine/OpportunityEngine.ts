@@ -80,76 +80,10 @@ export function generateOpportunities(
 }
 
 /**
- * Resolve a specific skim amount from the range.
+ * Create an Opportunity instance from a definition.
  */
-function resolveOpportunity(def: typeof OPPORTUNITIES[number], random: SeededRandom): Opportunity {
-  const skimAmount = random.range(def.skimRange[0], def.skimRange[1]);
-  return { ...def, skimAmount, delayCount: 0, dayAppeared: 0 };
-}
-
-/**
- * Apply a "take deal" action. Returns bag increase, heat increase, and budget change.
- */
-export function applyTakeDeal(
-  opportunity: Opportunity,
-  random: SeededRandom,
-): {
-  bagGain: number;
-  heatGain: number;
-  budgetCost: number;
-  rageEffect: number;
-  gridEffect: GridEffect;
-  failed: boolean;
-  failMessage: string;
-  corruptionEntry: CorruptionEntry;
-} {
-  let failed = false;
-  let failMessage = '';
-  let heatGain = opportunity.heatCost;
-
-  // Check for deal failure
-  if (opportunity.failChance > 0 && random.chance(opportunity.failChance)) {
-    failed = true;
-    failMessage = opportunity.failConsequence;
-    heatGain += BALANCING.OPPORTUNITY_FAIL_EXTRA_HEAT;
-  }
-
-  const corruptionEntry: CorruptionEntry = {
-    day: 0, // Caller sets this
-    action: opportunity.title,
-    skimAmount: opportunity.skimAmount,
-    heatAdded: heatGain,
-    category: opportunity.category,
-    inflationLevel: 0,
-  };
-
-  return {
-    bagGain: opportunity.skimAmount,
-    heatGain,
-    budgetCost: opportunity.budgetCost,
-    rageEffect: opportunity.rageEffect,
-    gridEffect: opportunity.gridEffect,
-    failed,
-    failMessage,
-    corruptionEntry,
-  };
-}
-
-/**
- * Apply a "clean deal" action. No skim, no heat, same grid effect.
- */
-export function applyCleanDeal(
-  opportunity: Opportunity,
-): {
-  budgetCost: number;
-  rageEffect: number;
-  gridEffect: GridEffect;
-} {
-  return {
-    budgetCost: opportunity.budgetCost,
-    rageEffect: Math.min(0, opportunity.rageEffect), // Only negative rage (good)
-    gridEffect: opportunity.gridEffect,
-  };
+function resolveOpportunity(def: typeof OPPORTUNITIES[number], _random: SeededRandom): Opportunity {
+  return { ...def, delayCount: 0 };
 }
 
 /**
@@ -175,8 +109,22 @@ export function applyTenderChoice(
 
   // Calculate costs and gains based on inflation
   const inflationMultiplier = 1 + inflationLevel;
-  const gridPays = Math.round(opportunity.baseCost * inflationMultiplier);
-  const bagGain = isClean ? 0 : Math.round(opportunity.baseCost * inflationLevel);
+
+  // For negative baseCost (budget injections like loans), don't scale with inflation
+  const gridPays = opportunity.baseCost < 0
+    ? opportunity.baseCost
+    : Math.round(opportunity.baseCost * inflationMultiplier);
+
+  // For off-books deals (flatSkim > 0), skim is a fixed amount regardless of inflation
+  // For negative baseCost deals, skim from the absolute value
+  let bagGain = 0;
+  if (!isClean) {
+    if (opportunity.flatSkim > 0) {
+      bagGain = opportunity.flatSkim;
+    } else {
+      bagGain = Math.round(Math.abs(opportunity.baseCost) * inflationLevel);
+    }
+  }
   const steps = Math.round(inflationLevel / 0.25); // 0,1,2,3,4
   const heatGain = isClean ? 0 : opportunity.heatPerInflation * steps;
 

@@ -34,6 +34,7 @@ interface DashboardScreenProps {
   onSpendInfluence: (action: 'suppress_rage' | 'deflect_investigation' | 'cover_diversion') => void;
   onRequestBailout: () => void;
   onEmergencyLevy: () => void;
+  onPlantDetail: () => void;
   onMenu: () => void;
   hasUnresolvedEvents: boolean;
 }
@@ -51,7 +52,7 @@ export function DashboardScreen({
   game, onDealClick, onEndDay, onStageChange, onActivateDiesel, onScheduleMaintenance,
   onBuyDieselFuel, onBuyEmergencyImport, onIncreaseTariff, onReduceTariff, onSellDieselFuel,
   onSetPlantMode, onRushRepair, onRushMaintenance, onSetDiversion, onSpendInfluence,
-  onRequestBailout, onEmergencyLevy, onMenu, hasUnresolvedEvents,
+  onRequestBailout, onEmergencyLevy, onPlantDetail, onMenu, hasUnresolvedEvents,
 }: DashboardScreenProps) {
   const [activeTab, setActiveTab] = useState(1); // Default to GRID tab
   const [expandedPlant, setExpandedPlant] = useState<string | null>(null);
@@ -119,7 +120,7 @@ export function DashboardScreen({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {pendingOpportunities.map((op, i) => {
                     const maxPct = Math.round((op.maxInflation - 1) * 100);
-                    const maxCut = Math.round(op.baseCost * (op.maxInflation - 1));
+                    const maxCut = op.flatSkim > 0 ? op.flatSkim : Math.round(Math.abs(op.baseCost) * (op.maxInflation - 1));
                     return (
                     <div key={op.id} onClick={() => onDealClick(op)} style={{
                       padding: 14, background: tokens.color.raised, borderRadius: 10,
@@ -138,7 +139,7 @@ export function DashboardScreen({
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim }}>Base R{op.baseCost}M</div>
+                          <div style={{ fontFamily: tokens.font.mono, fontSize: 10, color: tokens.color.dim }}>{op.flatSkim > 0 ? 'Off-books' : op.baseCost < 0 ? `+${formatMoney(Math.abs(op.baseCost))} injection` : `Base ${formatMoney(op.baseCost)}`}</div>
                           <div style={{ fontFamily: tokens.font.serif, fontSize: 18, fontWeight: 900, color: tokens.color.goldBright }}>up to +{formatMoney(maxCut)}</div>
                           <div style={{ fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.amber }}>max {maxPct}% inflation</div>
                         </div>
@@ -223,7 +224,13 @@ export function DashboardScreen({
 
             {/* Fleet */}
             <div style={staggeredFadeUp(1)}>
-              <SectionHeader icon={'\u{1F3ED}'}>Fleet ({game.plants.filter((p) => p.status === 'online' || p.status === 'derated').length}/{game.plants.length} active)</SectionHeader>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <SectionHeader icon={'\u{1F3ED}'}>Fleet ({game.plants.filter((p) => p.status === 'online' || p.status === 'derated').length}/{game.plants.length} active)</SectionHeader>
+                <button onClick={onPlantDetail} style={{
+                  padding: '4px 10px', background: tokens.color.surface, border: `1px solid ${tokens.color.border}`,
+                  borderRadius: 6, fontFamily: tokens.font.mono, fontSize: 9, color: tokens.color.muted, cursor: 'pointer',
+                }}>Details</button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {game.plants.map((p) => {
                   const outputPct = p.maxCapacity > 0 ? (p.currentOutput / p.maxCapacity) * 100 : 0;

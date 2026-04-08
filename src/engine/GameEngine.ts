@@ -106,7 +106,6 @@ export function createNewGame(mode: 'standard' | 'daily', seed?: string): GameSt
 export function createEmptyActions(): PlayerActions {
   return {
     tenders: [],
-    deals: [],
     stageSet: -1,
     dieselActivated: [],
     maintenanceScheduled: [],
@@ -327,35 +326,6 @@ export function resolveDay(state: GameState): GameState {
     }
   }
 
-  // 7b. Fall back to legacy deal processing for any unprocessed deals
-  for (const deal of s.playerActions.deals) {
-    if (processedTenderIds.has(deal.opportunityId)) continue;
-    const opp = s.todaysOpportunities.find((o) => o.id === deal.opportunityId);
-    if (!opp) continue;
-
-    if (deal.choice === 'take') {
-      tookCorruptAction = true;
-      const result = OpportunityEngine.applyTakeDeal(opp, random);
-      result.corruptionEntry.day = s.day;
-      daySkimmed += result.bagGain;
-      dayHeatAdded += result.heatGain;
-      dayBudgetCosts += result.budgetCost;
-      dayRageFromActions += result.rageEffect;
-      s.corruptionLog = [...s.corruptionLog, result.corruptionEntry];
-      s.plants = applyGridEffect(s.plants, result.gridEffect, random);
-      dayEvents.push(`You took the ${opp.title} deal and pocketed R${opp.skimAmount}M`);
-      if (result.failed) {
-        dayEvents.push(`Deal went wrong: ${result.failMessage}`);
-      }
-    } else if (deal.choice === 'clean') {
-      const result = OpportunityEngine.applyCleanDeal(opp);
-      dayBudgetCosts += result.budgetCost;
-      dayRageFromActions += result.rageEffect;
-      s.plants = applyGridEffect(s.plants, result.gridEffect, random);
-      dayEvents.push(`You awarded ${opp.title} as a clean contract`);
-    }
-  }
-
   // ── PHASE 3: Simulation ──
 
   // 8. Calculate demand with event modifiers
@@ -432,10 +402,8 @@ export function resolveDay(state: GameState): GameState {
   dayEvents.push(...heatResult.events);
 
   // 13b. Set breaking news on heat threshold crossings
-  for (const ev of heatResult.events) {
-    if (ev.includes('Journalists') || ev.includes('inquiry') || ev.includes('Arrest is imminent')) {
-      s.breakingNews = ev;
-    }
+  if (heatResult.thresholdCrossed) {
+    s.breakingNews = heatResult.events[heatResult.events.length - 1];
   }
 
   // 14. Roll heat investigation (spec: when heat >= 66, 15% daily chance a past deal is exposed)
